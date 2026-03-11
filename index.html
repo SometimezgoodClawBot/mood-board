@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Mood Board – House Colour Consultation</title>
+  <style>
+    :root{
+      --bg: #0b0f17;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.09);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.72);
+      --subtle: rgba(255,255,255,.18);
+      --border: rgba(255,255,255,.14);
+      --shadow: 0 18px 50px rgba(0,0,0,.35);
+      --brand: #7c3aed;
+      --brand2: #22c55e;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --radius: 16px;
+      --radius2: 12px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    [data-theme="light"]{
+      --bg: #f6f7fb;
+      --panel: rgba(0,0,0,.045);
+      --panel2: rgba(0,0,0,.065);
+      --text: rgba(0,0,0,.88);
+      --muted: rgba(0,0,0,.66);
+      --subtle: rgba(0,0,0,.16);
+      --border: rgba(0,0,0,.12);
+      --shadow: 0 18px 50px rgba(0,0,0,.12);
+      --brand: #6d28d9;
+      --brand2: #16a34a;
+      --danger: #dc2626;
+      --warn: #d97706;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(1200px 800px at 15% 10%, rgba(124,58,237,.24), transparent 45%),
+        radial-gradient(1000px 700px at 90% 15%, rgba(34,197,94,.18), transparent 42%),
+        radial-gradient(900px 650px at 50% 110%, rgba(245,158,11,.12), transparent 38%),
+        var(--bg);
+    }
+
+    a{color:inherit}
+    button, input, select, textarea{font:inherit;color:inherit}
+    .app{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .topbar{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding: 12px;
+      margin: -16px -16px 14px;
+      background: color-mix(in oklab, var(--bg) 82%, transparent);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-inner{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 16px;
+      display:flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .brand{
+      display:flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 240px;
+    }
+    .logo{
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--brand), color-mix(in oklab, var(--brand2) 50%, var(--brand)));
+      box-shadow: 0 10px 30px rgba(124,58,237,.28);
+      display:grid;
+      place-items:center;
+      border: 1px solid color-mix(in oklab, var(--brand) 55%, white 10%);
+    }
+    .logo svg{filter: drop-shadow(0 10px 20px rgba(0,0,0,.25))}
+
+    .brand h1{
+      margin:0;
+      font-size: 16px;
+      letter-spacing:.2px;
+      line-height: 1.2;
+    }
+    .brand .subtitle{
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .actions{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor:pointer;
+      display:inline-flex;
+      gap: 8px;
+      align-items:center;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,.12);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:hover{background: color-mix(in oklab, var(--panel2) 70%, var(--panel))}
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{
+      background: linear-gradient(135deg, color-mix(in oklab, var(--brand) 70%, black 10%), color-mix(in oklab, var(--brand2) 55%, var(--brand)));
+      border-color: color-mix(in oklab, var(--brand) 40%, white 10%);
+      box-shadow: 0 16px 35px rgba(124,58,237,.22);
+    }
+    .btn.danger{border-color: color-mix(in oklab, var(--danger) 35%, var(--border));}
+
+    .btn .kbd{
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      background: color-mix(in oklab, var(--panel) 80%, transparent);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 320px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px){
+      .layout{grid-template-columns: 1fr}
+      .brand{min-width: unset}
+    }
+
+    .card{
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .card h2{
+      margin: 0;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: .2px;
+      color: var(--muted);
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel2) 70%, transparent), transparent);
+    }
+
+    .pane{padding: 14px;}
+
+    .dropzone{
+      border: 1px dashed color-mix(in oklab, var(--border) 70%, var(--subtle));
+      border-radius: 16px;
+      background: color-mix(in oklab, var(--panel) 90%, transparent);
+      padding: 14px;
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .dropzone.dragover{
+      border-color: color-mix(in oklab, var(--brand) 45%, var(--border));
+      background: color-mix(in oklab, var(--brand) 12%, var(--panel));
+    }
+    .hint{font-size: 12px; color: var(--muted); line-height: 1.4}
+
+    .row{display:flex; gap:10px; align-items:center; flex-wrap: wrap;}
+    .field{display:flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 140px}
+    .label{font-size: 12px; color: var(--muted)}
+    select,input[type="text"],textarea{
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel) 88%, transparent);
+      outline: none;
+    }
+    textarea{min-height: 74px; resize: vertical}
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel) 92%, transparent);
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .board-header{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel2) 70%, transparent), transparent);
+    }
+
+    .seg{
+      display:flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items:center;
+    }
+
+    .seg button{
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      cursor:pointer;
+      color: var(--muted);
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .seg button[aria-pressed="true"]{
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--brand) 40%, var(--border));
+      background: color-mix(in oklab, var(--brand) 14%, var(--panel));
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 14px;
+    }
+    @media (max-width: 1100px){
+      .grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
+    }
+    @media (max-width: 640px){
+      .grid{grid-template-columns: 1fr;}
+    }
+
+    .thumb{
+      border-radius: 16px;
+      overflow:hidden;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel) 90%, transparent);
+      box-shadow: 0 14px 30px rgba(0,0,0,.18);
+      display:flex;
+      flex-direction: column;
+      min-height: 220px;
+      position: relative;
+    }
+
+    .thumb img{
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+      display:block;
+      background: color-mix(in oklab, var(--panel) 90%, transparent);
+    }
+
+    .thumb .meta{
+      padding: 10px 10px 12px;
+      display:flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .thumb .title-row{
+      display:flex;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .thumb .title{
+      font-weight: 650;
+      font-size: 13px;
+      line-height: 1.2;
+      overflow:hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .thumb .room{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .thumb .notes{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+      overflow:hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      min-height: 49px;
+    }
+
+    .thumb .controls{
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items:center;
+      justify-content: space-between;
+    }
+
+    .iconbtn{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 8px 10px;
+      cursor:pointer;
+      color: var(--muted);
+      transition: background .15s ease, border-color .15s ease;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+    }
+    .iconbtn:hover{background: color-mix(in oklab, var(--panel2) 70%, var(--panel)); color: var(--text)}
+
+    .check{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      user-select:none;
+    }
+
+    input[type="checkbox"]{width: 16px; height: 16px}
+
+    .empty{
+      padding: 26px 14px 34px;
+      text-align:center;
+      color: var(--muted);
+    }
+    .empty strong{color: var(--text)}
+
+    .toast{
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background: color-mix(in oklab, var(--panel2) 80%, var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 14px;
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+      max-width: min(720px, calc(100vw - 28px));
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .toast.show{opacity: 1; transform: translateX(-50%) translateY(-6px)}
+
+    dialog{
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--bg) 85%, black 10%);
+      border-radius: 18px;
+      padding: 0;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      width: min(980px, calc(100vw - 24px));
+    }
+    dialog::backdrop{background: rgba(0,0,0,.55)}
+
+    .modal-header{
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 10px;
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel2) 70%, transparent), transparent);
+    }
+    .modal-title{font-weight: 700}
+    .modal-body{padding: 14px;}
+
+    .compare-grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 820px){
+      .compare-grid{grid-template-columns: 1fr}
+    }
+
+    .compare-item{
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow:hidden;
+      background: var(--panel);
+    }
+
+    .compare-item img{width: 100%; height: 320px; object-fit: cover; display:block}
+    @media (max-width: 820px){
+      .compare-item img{height: 240px}
+    }
+    .compare-item .cap{padding: 10px 12px; color: var(--muted); font-size: 12px; line-height: 1.35}
+    .compare-item .cap strong{color: var(--text)}
+
+    .sr-only{position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden}
+
+    /* Print layout for PDF export */
+    @media print{
+      body{background: white !important;}
+      .topbar, .sidebar, .no-print{display:none !important;}
+      .layout{grid-template-columns: 1fr !important;}
+      .card{box-shadow:none !important;}
+      .board-header{position: static !important;}
+      .thumb{break-inside: avoid; box-shadow:none !important;}
+      .grid{grid-template-columns: repeat(2, minmax(0, 1fr)) !important;}
+      a{color: black !important; text-decoration:none !important;}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar no-print">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 15.5c2.2-2.7 4.7-3.9 7.5-3.5 2.8.4 4.6 2.1 5.5 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M14.5 4c2.6 1.3 4.5 3.9 5 6.9" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M5 10c1.2-3.1 3.5-5.3 6.9-6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Mood Board</h1>
+          <div class="subtitle">House colour consultation • offline-ready</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="themeBtn" type="button" title="Toggle light/dark">
+          <span aria-hidden="true">◐</span>
+          <span>Theme</span>
+        </button>
+        <button class="btn" id="compareBtn" type="button" title="Compare 2–3 selected images">
+          <span aria-hidden="true">▦</span>
+          <span>Compare</span>
+          <span class="kbd">2–3</span>
+        </button>
+        <button class="btn" id="exportJsonBtn" type="button" title="Export the board as JSON">
+          <span aria-hidden="true">⇩</span>
+          <span>Export JSON</span>
+        </button>
+        <label class="btn" for="importJsonInput" title="Import a previously exported board JSON" style="cursor:pointer">
+          <span aria-hidden="true">⇧</span>
+          <span>Import JSON</span>
+        </label>
+        <input id="importJsonInput" class="sr-only" type="file" accept="application/json" />
+        <button class="btn" id="exportPdfBtn" type="button" title="Export board as PDF (uses Print)">
+          <span aria-hidden="true">⎙</span>
+          <span>Export PDF</span>
+        </button>
+        <button class="btn danger" id="resetBtn" type="button" title="Clear the board (local only)">
+          <span aria-hidden="true">✕</span>
+          <span>Reset</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="layout">
+      <aside class="sidebar card no-print" aria-label="Upload and settings">
+        <h2>Upload & annotate</h2>
+        <div class="pane">
+          <div id="dropzone" class="dropzone" role="group" aria-label="Image upload dropzone">
+            <div class="row">
+              <label class="btn primary" for="fileInput" style="cursor:pointer; flex: 1 1 auto; justify-content:center">
+                <span aria-hidden="true">＋</span>
+                <span>Add images</span>
+              </label>
+              <input id="fileInput" class="sr-only" type="file" accept="image/*" multiple />
+            </div>
+            <div class="hint">
+              Drag & drop images here (JPG/PNG/WEBP). Your board is stored locally in this browser for offline use.
+              <br />Tip: keep images reasonably sized for faster PDF/JSON exports.
+            </div>
+
+            <div class="row" style="margin-top: 4px">
+              <div class="field">
+                <div class="label">Default room for new uploads</div>
+                <select id="defaultRoom">
+                  <option value="Kitchen">Kitchen</option>
+                  <option value="Living Room">Living Room</option>
+                  <option value="Bedroom">Bedroom</option>
+                  <option value="Bathroom">Bathroom</option>
+                  <option value="Exterior">Exterior</option>
+                  <option value="Other" selected>Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <span class="pill" id="statsPill">0 images</span>
+              <span class="pill" id="storagePill">Storage: —</span>
+            </div>
+          </div>
+
+          <div style="height: 14px"></div>
+
+          <div class="card" style="border-radius: 16px">
+            <h2 style="border-bottom: 1px solid var(--border)">Quick help</h2>
+            <div class="pane" style="padding-top: 12px">
+              <div class="hint" style="margin-bottom: 10px">
+                • Use <strong>Label</strong> for paint name / supplier / finish.
+                <br />• Use <strong>Notes</strong> for undertones, light direction, trim pairing, etc.
+                <br />• Select 2–3 images then tap <strong>Compare</strong>.
+              </div>
+              <div class="hint">
+                PDF export uses your browser’s print dialog. Choose “Save as PDF”.
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="card" aria-label="Mood board">
+        <div class="board-header">
+          <div>
+            <div style="font-weight:800; letter-spacing:.2px;">Board</div>
+            <div class="hint" id="boardHint">Filter by room, then label and compare options.</div>
+          </div>
+          <div class="seg" role="group" aria-label="Room filter">
+            <button type="button" class="roomFilter" data-room="All" aria-pressed="true">All</button>
+            <button type="button" class="roomFilter" data-room="Kitchen" aria-pressed="false">Kitchen</button>
+            <button type="button" class="roomFilter" data-room="Living Room" aria-pressed="false">Living Room</button>
+            <button type="button" class="roomFilter" data-room="Bedroom" aria-pressed="false">Bedroom</button>
+            <button type="button" class="roomFilter" data-room="Bathroom" aria-pressed="false">Bathroom</button>
+            <button type="button" class="roomFilter" data-room="Exterior" aria-pressed="false">Exterior</button>
+            <button type="button" class="roomFilter" data-room="Other" aria-pressed="false">Other</button>
+          </div>
+        </div>
+
+        <div id="grid" class="grid" aria-live="polite"></div>
+        <div id="empty" class="empty" hidden>
+          <div style="font-size: 14px; margin-bottom: 6px"><strong>No images yet</strong></div>
+          <div class="hint">Add images via the upload button or drag & drop into the left panel.</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="editDialog">
+    <form method="dialog" id="editForm">
+      <div class="modal-header">
+        <div class="modal-title">Edit image</div>
+        <div class="row">
+          <button class="btn" value="cancel" type="submit">Close</button>
+          <button class="btn primary" id="saveEditBtn" value="ok" type="submit">Save</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="row" style="gap: 12px; align-items: stretch">
+          <div style="flex: 1 1 340px; min-width: 260px">
+            <div class="card" style="border-radius: 16px; overflow:hidden">
+              <img id="editPreview" alt="" style="width:100%; height: 280px; object-fit: cover; display:block" />
+            </div>
+            <div class="hint" id="editMeta" style="margin-top: 8px"></div>
+          </div>
+          <div style="flex: 1 1 420px; min-width: 260px">
+            <div class="field">
+              <div class="label">Room</div>
+              <select id="editRoom">
+                <option value="Kitchen">Kitchen</option>
+                <option value="Living Room">Living Room</option>
+                <option value="Bedroom">Bedroom</option>
+                <option value="Bathroom">Bathroom</option>
+                <option value="Exterior">Exterior</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="field">
+              <div class="label">Label</div>
+              <input id="editLabel" type="text" maxlength="80" placeholder="e.g., Dulux — Natural White (matte)" />
+            </div>
+            <div style="height: 10px"></div>
+            <div class="field">
+              <div class="label">Notes</div>
+              <textarea id="editNotes" maxlength="600" placeholder="Undertone, lighting notes, trim pairing, etc."></textarea>
+              <div class="hint" id="notesCount">0/600</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="compareDialog">
+    <form method="dialog">
+      <div class="modal-header">
+        <div class="modal-title">Compare</div>
+        <div class="row">
+          <button class="btn" value="cancel" type="submit">Close</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="hint" style="margin-bottom: 10px">Side-by-side view of your selected images.</div>
+        <div id="compareGrid" class="compare-grid"></div>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const ROOMS = ["Kitchen","Living Room","Bedroom","Bathroom","Exterior","Other"];
+      const STORAGE_KEY = 'moodBoard.v1';
+      const THEME_KEY = 'moodBoard.theme';
+
+      /** @type {{version:1, createdAt:number, updatedAt:number, items:Array<any>}} */
+      let state = {
+        version: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        items: []
+      };
+
+      let activeRoom = 'All';
+      const selectedIds = new Set();
+      let editingId = null;
+
+      const $ = (sel, el=document) => el.querySelector(sel);
+      const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+
+      const els = {
+        grid: $('#grid'),
+        empty: $('#empty'),
+        dropzone: $('#dropzone'),
+        fileInput: $('#fileInput'),
+        defaultRoom: $('#defaultRoom'),
+        statsPill: $('#statsPill'),
+        storagePill: $('#storagePill'),
+        exportJsonBtn: $('#exportJsonBtn'),
+        importJsonInput: $('#importJsonInput'),
+        exportPdfBtn: $('#exportPdfBtn'),
+        compareBtn: $('#compareBtn'),
+        resetBtn: $('#resetBtn'),
+        themeBtn: $('#themeBtn'),
+        toast: $('#toast'),
+        editDialog: $('#editDialog'),
+        editPreview: $('#editPreview'),
+        editMeta: $('#editMeta'),
+        editRoom: $('#editRoom'),
+        editLabel: $('#editLabel'),
+        editNotes: $('#editNotes'),
+        notesCount: $('#notesCount'),
+        saveEditBtn: $('#saveEditBtn'),
+        compareDialog: $('#compareDialog'),
+        compareGrid: $('#compareGrid')
+      };
+
+      function uid(){
+        if (crypto && 'randomUUID' in crypto) return crypto.randomUUID();
+        return 'id-' + Math.random().toString(16).slice(2) + '-' + Date.now().toString(16);
+      }
+
+      function clamp(n, min, max){return Math.max(min, Math.min(max, n));}
+
+      function toast(msg){
+        els.toast.textContent = msg;
+        els.toast.classList.add('show');
+        window.clearTimeout(toast._t);
+        toast._t = window.setTimeout(() => els.toast.classList.remove('show'), 2400);
+      }
+
+      function bytesToHuman(bytes){
+        if (!Number.isFinite(bytes)) return '—';
+        const units = ['B','KB','MB','GB'];
+        let i = 0;
+        let v = bytes;
+        while (v >= 1024 && i < units.length-1){ v/=1024; i++; }
+        return `${v.toFixed(i===0?0:1)} ${units[i]}`;
+      }
+
+      function computeStorageApprox(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return 0;
+          // JS strings are UTF-16; approximate bytes = length*2
+          return raw.length * 2;
+        }catch{ return NaN; }
+      }
+
+      function saveState(){
+        state.updatedAt = Date.now();
+        try{
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }catch(err){
+          console.error(err);
+          toast('Could not save — storage may be full. Try fewer/smaller images.');
+        }
+        updateStats();
+      }
+
+      function loadState(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.items)) return;
+          state = parsed;
+        }catch(err){
+          console.warn('Failed to load state:', err);
+        }
+      }
+
+      function setTheme(theme){
+        const t = (theme === 'light' || theme === 'dark') ? theme : null;
+        if (t) document.documentElement.setAttribute('data-theme', t);
+        else document.documentElement.removeAttribute('data-theme');
+        try{ localStorage.setItem(THEME_KEY, t || 'system'); }catch{}
+      }
+
+      function initTheme(){
+        let pref = 'system';
+        try{ pref = localStorage.getItem(THEME_KEY) || 'system'; }catch{}
+        if (pref === 'light' || pref === 'dark') setTheme(pref);
+        else setTheme(null);
+      }
+
+      function toggleTheme(){
+        const cur = document.documentElement.getAttribute('data-theme');
+        if (!cur){ setTheme('dark'); toast('Theme: dark'); return; }
+        if (cur === 'dark'){ setTheme('light'); toast('Theme: light'); return; }
+        setTheme(null); toast('Theme: system');
+      }
+
+      function download(filename, text, mime='application/json'){
+        const blob = new Blob([text], {type: mime});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      }
+
+      function readFileAsDataURL(file){
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onerror = () => reject(new Error('Failed to read file'));
+          r.onload = () => resolve(String(r.result));
+          r.readAsDataURL(file);
+        });
+      }
+
+      async function downscaleDataUrl(dataUrl, maxDim=1800, quality=0.88){
+        // Downscale large images for better performance/storage.
+        // Keeps aspect ratio; outputs JPEG unless source has alpha.
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = dataUrl;
+        await img.decode();
+
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h) return dataUrl;
+
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        if (scale >= 1) return dataUrl;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.floor(w * scale));
+        canvas.height = Math.max(1, Math.floor(h * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const hasAlpha = dataUrl.startsWith('data:image/png') || dataUrl.startsWith('data:image/webp');
+        const type = hasAlpha ? 'image/png' : 'image/jpeg';
+        try{
+          return canvas.toDataURL(type, type === 'image/jpeg' ? quality : undefined);
+        }catch{
+          return dataUrl;
+        }
+      }
+
+      function itemsForActiveRoom(){
+        const items = state.items.slice().sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+        if (activeRoom === 'All') return items;
+        return items.filter(it => it.room === activeRoom);
+      }
+
+      function updateStats(){
+        const n = state.items.length;
+        els.statsPill.textContent = `${n} image${n===1?'':'s'}`;
+        const approx = computeStorageApprox();
+        els.storagePill.textContent = `Storage: ${bytesToHuman(approx)}`;
+      }
+
+      function render(){
+        const items = itemsForActiveRoom();
+        els.grid.innerHTML = '';
+
+        els.empty.hidden = !(state.items.length === 0);
+
+        for (const it of items){
+          const card = document.createElement('div');
+          card.className = 'thumb';
+          card.dataset.id = it.id;
+
+          const img = document.createElement('img');
+          img.src = it.dataUrl;
+          img.alt = it.label ? it.label : (it.fileName || 'Mood board image');
+          img.loading = 'lazy';
+
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+
+          const top = document.createElement('div');
+          top.className = 'title-row';
+
+          const title = document.createElement('div');
+          title.className = 'title';
+          title.textContent = it.label || it.fileName || 'Untitled';
+
+          const room = document.createElement('div');
+          room.className = 'room';
+          room.textContent = it.room || 'Other';
+
+          top.appendChild(title);
+          top.appendChild(room);
+
+          const notes = document.createElement('div');
+          notes.className = 'notes';
+          notes.textContent = it.notes || '—';
+
+          const controls = document.createElement('div');
+          controls.className = 'controls';
+
+          const left = document.createElement('div');
+          left.className = 'row';
+          left.style.gap = '8px';
+
+          const check = document.createElement('label');
+          check.className = 'check';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = selectedIds.has(it.id);
+          cb.addEventListener('change', () => {
+            if (cb.checked){
+              if (selectedIds.size >= 3){
+                cb.checked = false;
+                toast('Select up to 3 images for comparison.');
+                return;
+              }
+              selectedIds.add(it.id);
+            } else {
+              selectedIds.delete(it.id);
+            }
+            updateCompareButton();
+          });
+          const span = document.createElement('span');
+          span.textContent = 'Compare';
+          check.appendChild(cb);
+          check.appendChild(span);
+
+          const editBtn = document.createElement('button');
+          editBtn.className = 'iconbtn';
+          editBtn.type = 'button';
+          editBtn.innerHTML = '<span aria-hidden="true">✎</span><span>Edit</span>';
+          editBtn.addEventListener('click', () => openEdit(it.id));
+
+          left.appendChild(check);
+          left.appendChild(editBtn);
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'iconbtn';
+          delBtn.type = 'button';
+          delBtn.style.borderColor = 'color-mix(in oklab, var(--danger) 30%, var(--border))';
+          delBtn.innerHTML = '<span aria-hidden="true">🗑</span><span>Delete</span>';
+          delBtn.addEventListener('click', () => {
+            const ok = confirm('Delete this image from the board?');
+            if (!ok) return;
+            state.items = state.items.filter(x => x.id !== it.id);
+            selectedIds.delete(it.id);
+            saveState();
+            render();
+            updateCompareButton();
+            toast('Deleted.');
+          });
+
+          controls.appendChild(left);
+          controls.appendChild(delBtn);
+
+          meta.appendChild(top);
+          meta.appendChild(notes);
+          meta.appendChild(controls);
+
+          card.appendChild(img);
+          card.appendChild(meta);
+          els.grid.appendChild(card);
+        }
+
+        updateStats();
+        updateCompareButton();
+      }
+
+      function setActiveRoom(room){
+        activeRoom = room;
+        for (const b of $$('.roomFilter')){
+          const on = b.dataset.room === room;
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        render();
+      }
+
+      function updateCompareButton(){
+        const n = selectedIds.size;
+        els.compareBtn.disabled = !(n >= 2 && n <= 3);
+        els.compareBtn.style.opacity = els.compareBtn.disabled ? '0.65' : '1';
+      }
+
+      function openEdit(id){
+        const it = state.items.find(x => x.id === id);
+        if (!it) return;
+        editingId = id;
+        els.editPreview.src = it.dataUrl;
+        els.editPreview.alt = it.label || it.fileName || 'Image preview';
+        els.editRoom.value = it.room || 'Other';
+        els.editLabel.value = it.label || '';
+        els.editNotes.value = it.notes || '';
+        updateNotesCount();
+
+        const when = it.createdAt ? new Date(it.createdAt).toLocaleString() : '';
+        const meta = [it.fileName || ''];
+        if (it.fileSize) meta.push(bytesToHuman(it.fileSize));
+        if (when) meta.push(when);
+        els.editMeta.textContent = meta.filter(Boolean).join(' • ');
+
+        els.editDialog.showModal();
+        setTimeout(()=>els.editLabel.focus(), 50);
+      }
+
+      function updateNotesCount(){
+        els.notesCount.textContent = `${(els.editNotes.value||'').length}/600`;
+      }
+
+      function saveEdit(){
+        const it = state.items.find(x => x.id === editingId);
+        if (!it) return;
+        it.room = (ROOMS.includes(els.editRoom.value) ? els.editRoom.value : 'Other');
+        it.label = (els.editLabel.value || '').trim();
+        it.notes = (els.editNotes.value || '').trim();
+        it.updatedAt = Date.now();
+        saveState();
+        render();
+        toast('Saved.');
+      }
+
+      async function handleFiles(fileList){
+        const files = Array.from(fileList || []).filter(f => f && f.type && f.type.startsWith('image/'));
+        if (!files.length){
+          toast('No images found.');
+          return;
+        }
+
+        const room = ROOMS.includes(els.defaultRoom.value) ? els.defaultRoom.value : 'Other';
+
+        for (const f of files){
+          try{
+            const dataUrl = await readFileAsDataURL(f);
+            const scaled = await downscaleDataUrl(dataUrl, 1800, 0.88);
+            const item = {
+              id: uid(),
+              room,
+              label: '',
+              notes: '',
+              fileName: f.name,
+              fileSize: f.size,
+              mime: f.type,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              dataUrl: scaled
+            };
+            state.items.push(item);
+            saveState();
+          }catch(err){
+            console.error(err);
+            toast(`Failed to add ${f.name}`);
+          }
+        }
+
+        render();
+        toast(`Added ${files.length} image${files.length===1?'':'s'}.`);
+      }
+
+      function exportJSON(){
+        const payload = {
+          ...state,
+          exportedAt: Date.now(),
+          app: 'mood-board'
+        };
+        const name = `mood-board-${new Date().toISOString().slice(0,10)}.json`;
+        download(name, JSON.stringify(payload, null, 2));
+        toast('JSON exported.');
+      }
+
+      async function importJSON(file){
+        const text = await file.text();
+        let parsed;
+        try{ parsed = JSON.parse(text); }catch{ throw new Error('Invalid JSON'); }
+
+        if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.items)){
+          throw new Error('Unsupported format');
+        }
+
+        // Basic validation / sanitation
+        const cleaned = [];
+        for (const it of parsed.items){
+          if (!it || typeof it !== 'object') continue;
+          if (typeof it.dataUrl !== 'string' || !it.dataUrl.startsWith('data:image/')) continue;
+          const room = ROOMS.includes(it.room) ? it.room : 'Other';
+          cleaned.push({
+            id: typeof it.id === 'string' ? it.id : uid(),
+            room,
+            label: typeof it.label === 'string' ? it.label.slice(0,80) : '',
+            notes: typeof it.notes === 'string' ? it.notes.slice(0,600) : '',
+            fileName: typeof it.fileName === 'string' ? it.fileName.slice(0,120) : '',
+            fileSize: Number.isFinite(it.fileSize) ? it.fileSize : undefined,
+            mime: typeof it.mime === 'string' ? it.mime : 'image/*',
+            createdAt: Number.isFinite(it.createdAt) ? it.createdAt : Date.now(),
+            updatedAt: Date.now(),
+            dataUrl: it.dataUrl
+          });
+        }
+
+        state = {
+          version: 1,
+          createdAt: Number.isFinite(parsed.createdAt) ? parsed.createdAt : Date.now(),
+          updatedAt: Date.now(),
+          items: cleaned
+        };
+        selectedIds.clear();
+        saveState();
+        render();
+        toast('Board imported.');
+      }
+
+      function openCompare(){
+        const ids = Array.from(selectedIds);
+        if (ids.length < 2 || ids.length > 3){
+          toast('Select 2–3 images to compare.');
+          return;
+        }
+        els.compareGrid.innerHTML = '';
+        const items = ids.map(id => state.items.find(x => x.id === id)).filter(Boolean);
+        for (const it of items){
+          const box = document.createElement('div');
+          box.className = 'compare-item';
+          const img = document.createElement('img');
+          img.src = it.dataUrl;
+          img.alt = it.label || it.fileName || 'Comparison image';
+          const cap = document.createElement('div');
+          cap.className = 'cap';
+          cap.innerHTML = `<strong>${escapeHtml(it.label || it.fileName || 'Untitled')}</strong><br>${escapeHtml(it.room || 'Other')}<br>${escapeHtml(it.notes || '')}`;
+          box.appendChild(img);
+          box.appendChild(cap);
+          els.compareGrid.appendChild(box);
+        }
+        els.compareDialog.showModal();
+      }
+
+      function escapeHtml(str){
+        return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      }
+
+      function resetBoard(){
+        const ok = confirm('Reset the board? This clears images/notes saved in this browser.');
+        if (!ok) return;
+        state = {version:1, createdAt:Date.now(), updatedAt:Date.now(), items:[]};
+        selectedIds.clear();
+        try{ localStorage.removeItem(STORAGE_KEY); }catch{}
+        render();
+        toast('Board reset.');
+      }
+
+      function exportPDF(){
+        // Uses print stylesheet; user can "Save as PDF".
+        toast('Opening print dialog…');
+        setTimeout(()=>window.print(), 50);
+      }
+
+      // Event wiring
+      $$('.roomFilter').forEach(btn => {
+        btn.addEventListener('click', () => setActiveRoom(btn.dataset.room));
+      });
+
+      els.fileInput.addEventListener('change', async (e) => {
+        const files = e.target.files;
+        await handleFiles(files);
+        els.fileInput.value = '';
+      });
+
+      // Drag & drop
+      ;['dragenter','dragover'].forEach(ev => {
+        els.dropzone.addEventListener(ev, (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          els.dropzone.classList.add('dragover');
+        });
+      });
+      ;['dragleave','drop'].forEach(ev => {
+        els.dropzone.addEventListener(ev, (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          els.dropzone.classList.remove('dragover');
+        });
+      });
+      els.dropzone.addEventListener('drop', async (e)=>{
+        const dt = e.dataTransfer;
+        if (!dt) return;
+        await handleFiles(dt.files);
+      });
+
+      els.exportJsonBtn.addEventListener('click', exportJSON);
+      els.importJsonInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try{
+          await importJSON(file);
+        }catch(err){
+          console.error(err);
+          toast(`Import failed: ${err.message || err}`);
+        }finally{
+          els.importJsonInput.value = '';
+        }
+      });
+
+      els.exportPdfBtn.addEventListener('click', exportPDF);
+      els.compareBtn.addEventListener('click', openCompare);
+      els.resetBtn.addEventListener('click', resetBoard);
+      els.themeBtn.addEventListener('click', toggleTheme);
+
+      // Edit dialog interactions
+      els.editNotes.addEventListener('input', updateNotesCount);
+      $('#editForm').addEventListener('submit', (e) => {
+        // If user clicked Save, dialog value will be "ok".
+        const v = els.editDialog.returnValue;
+        if (v === 'ok'){
+          e.preventDefault();
+          saveEdit();
+          els.editDialog.close();
+        }
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const mod = isMac ? e.metaKey : e.ctrlKey;
+        if (mod && e.key.toLowerCase() === 'p'){
+          e.preventDefault();
+          exportPDF();
+        }
+        if (mod && e.key.toLowerCase() === 's'){
+          e.preventDefault();
+          exportJSON();
+        }
+        if (e.key === 'Escape'){
+          // allow dialogs to close naturally
+        }
+      });
+
+      // Startup
+      initTheme();
+      loadState();
+      updateStats();
+      render();
+
+      // Handle storage changes across tabs
+      window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY){
+          loadState();
+          render();
+          toast('Board updated in another tab.');
+        }
+      });
+
+      // Offline/online indicator
+      function netToast(){
+        toast(navigator.onLine ? 'Online' : 'Offline (local only)');
+      }
+      window.addEventListener('online', netToast);
+      window.addEventListener('offline', netToast);
+
+      // Initial compare button state
+      updateCompareButton();
+
+    })();
+  </script>
+</body>
+</html>
