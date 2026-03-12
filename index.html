@@ -1227,10 +1227,19 @@
           currentUser = '';
         }
         if (els.userBtnLabel) els.userBtnLabel.textContent = `User: ${currentUser || '—'}`;
-        console.log(`[ensureUserSelected] Final user: "${currentUser}"`);
-        if (!currentUser && els.userDialog){
-          console.log(`[ensureUserSelected] No user set, showing modal`);
-          els.userDialog.showModal();
+        console.log(`[ensureUserSelected] Final user: "${currentUser}", els.userDialog exists: ${!!els.userDialog}`);
+        if (!currentUser){
+          if (els.userDialog){
+            console.log(`[ensureUserSelected] Showing user modal now`);
+            try{
+              els.userDialog.showModal();
+              console.log(`[ensureUserSelected] Modal shown successfully`);
+            }catch(err){
+              console.error(`[ensureUserSelected] Failed to show modal:`, err);
+            }
+          } else {
+            console.error(`[ensureUserSelected] Cannot show modal - els.userDialog is null!`);
+          }
         }
       }
 
@@ -2148,7 +2157,12 @@
 
       // Load local immediately for fast startup/offline support.
       loadState();
-      ensureUserSelected();
+      
+      // Delay user selection check so it doesn't conflict with PIN prompt
+      setTimeout(() => {
+        ensureUserSelected();
+      }, 500);
+      
       updateStats();
       render();
 
