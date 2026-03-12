@@ -227,6 +227,23 @@
       white-space: nowrap;
     }
 
+    /* Sync status pill */
+    #syncPill[data-sync="saving"]{
+      color: color-mix(in oklab, var(--warn) 75%, var(--text));
+      border-color: color-mix(in oklab, var(--warn) 40%, var(--border));
+      background: color-mix(in oklab, var(--warn) 10%, var(--panel));
+    }
+    #syncPill[data-sync="synced"]{
+      color: color-mix(in oklab, var(--brand2) 80%, var(--text));
+      border-color: color-mix(in oklab, var(--brand2) 40%, var(--border));
+      background: color-mix(in oklab, var(--brand2) 10%, var(--panel));
+    }
+    #syncPill[data-sync="offline"]{
+      color: color-mix(in oklab, var(--danger) 70%, var(--text));
+      border-color: color-mix(in oklab, var(--danger) 35%, var(--border));
+      background: color-mix(in oklab, var(--danger) 8%, var(--panel));
+    }
+
     .board-header{
       display:flex;
       gap: 10px;
@@ -519,8 +536,8 @@
               <input id="fileInput" class="sr-only" type="file" accept="image/*" multiple />
             </div>
             <div class="hint">
-              Drag & drop images here (JPG/PNG/WEBP). Your board is stored locally in this browser for offline use.
-              <br />Tip: keep images reasonably sized for faster PDF/JSON exports.
+              Drag & drop images here (JPG/PNG/WEBP). Your board syncs to the cloud when online and stays available offline in this browser.
+              <br />Tip: keep images reasonably sized for faster sync and PDF/JSON exports.
             </div>
 
             <div class="row" style="margin-top: 4px">
@@ -540,6 +557,7 @@
             <div class="row">
               <span class="pill" id="statsPill">0 images</span>
               <span class="pill" id="storagePill">Storage: —</span>
+              <span class="pill" id="syncPill" data-sync="offline" title="Cloud sync status">Sync: offline</span>
             </div>
           </div>
 
@@ -650,13 +668,39 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script>
-    (function(){
+  <script type="module">
+    import { initializeApp } from 'https://esm.sh/firebase@10.12.5/app';
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'https://esm.sh/firebase@10.12.5/firestore';
+
+    (async function(){
       'use strict';
 
       const ROOMS = ["Kitchen","Living Room","Bedroom","Bathroom","Exterior","Other"];
       const STORAGE_KEY = 'moodBoard.v1';
       const THEME_KEY = 'moodBoard.theme';
+
+      // Firebase (Firestore) cloud sync
+      const firebaseConfig = {
+        apiKey: "AIzaSyCZ73qX7khfWrmuewpfW8jDwD0svENsIcI",
+        authDomain: "mood-board-e1e35.firebaseapp.com",
+        projectId: "mood-board-e1e35",
+        storageBucket: "mood-board-e1e35.firebasestorage.app",
+        messagingSenderId: "917618272684",
+        appId: "1:917618272684:web:d71afc5be4f210d5897209"
+      };
+
+      const BOARD_COLLECTION = 'boards';
+      const BOARD_ID = 'default';
+
+      /** @type {import('firebase/firestore').Firestore | null} */
+      let db = null;
+      /** @type {ReturnType<typeof doc> | null} */
+      let boardRef = null;
+
+      let dirty = false;
+      let applyingRemote = false;
+      let saveTimer = 0;
+      let lastRemoteClientUpdatedAt = 0;
 
       /** @type {{version:1, createdAt:number, updatedAt:number, items:Array<any>}} */
       let state = {
@@ -681,6 +725,7 @@
         defaultRoom: $('#defaultRoom'),
         statsPill: $('#statsPill'),
         storagePill: $('#storagePill'),
+        syncPill: $('#syncPill'),
         exportJsonBtn: $('#exportJsonBtn'),
         importJsonInput: $('#importJsonInput'),
         exportPdfBtn: $('#exportPdfBtn'),
@@ -714,6 +759,23 @@
         toast._t = window.setTimeout(() => els.toast.classList.remove('show'), 2400);
       }
 
+      function setSyncStatus(mode, detail){
+        // mode: 'saving' | 'synced' | 'offline'
+        const m = (mode === 'saving' || mode === 'synced') ? mode : 'offline';
+        const text = detail ? `Sync: ${detail}` : (m === 'synced' ? 'Sync: synced' : (m === 'saving' ? 'Sync: saving…' : 'Sync: offline'));
+        if (els.syncPill){
+          els.syncPill.dataset.sync = m;
+          els.syncPill.textContent = text;
+        }
+      }
+
+      function scheduleCloudSave(delayMs=1500){
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => {
+          void saveToCloud();
+        }, delayMs);
+      }
+
       function bytesToHuman(bytes){
         if (!Number.isFinite(bytes)) return '—';
         const units = ['B','KB','MB','GB'];
@@ -732,8 +794,7 @@
         }catch{ return NaN; }
       }
 
-      function saveState(){
-        state.updatedAt = Date.now();
+      function saveLocalOnly(){
         try{
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         }catch(err){
@@ -741,6 +802,15 @@
           toast('Could not save — storage may be full. Try fewer/smaller images.');
         }
         updateStats();
+      }
+
+      function saveState(){
+        state.updatedAt = Date.now();
+        dirty = true;
+        saveLocalOnly();
+
+        // Avoid writing straight back to the cloud when we are applying a remote update.
+        if (!applyingRemote) scheduleCloudSave(1500);
       }
 
       function loadState(){
@@ -752,6 +822,67 @@
           state = parsed;
         }catch(err){
           console.warn('Failed to load state:', err);
+        }
+      }
+
+      function isValidCloudState(obj){
+        return !!(obj && typeof obj === 'object' && obj.version === 1 && Array.isArray(obj.items));
+      }
+
+      async function saveToCloud(){
+        if (!navigator.onLine){
+          setSyncStatus('offline', 'offline');
+          return;
+        }
+        if (!db || !boardRef){
+          setSyncStatus('offline', 'offline');
+          return;
+        }
+        if (!dirty) {
+          setSyncStatus('synced', 'synced');
+          return;
+        }
+
+        setSyncStatus('saving', 'saving…');
+        try{
+          const payload = {
+            ...state,
+            clientUpdatedAt: state.updatedAt,
+            cloudUpdatedAt: serverTimestamp()
+          };
+          await setDoc(boardRef, payload, { merge: false });
+          dirty = false;
+          setSyncStatus('synced', 'synced');
+        }catch(err){
+          console.warn('Firestore save failed; staying local:', err);
+          setSyncStatus('offline', 'offline');
+        }
+      }
+
+      async function loadFromCloud(){
+        if (!navigator.onLine || !db || !boardRef) return false;
+        try{
+          const snap = await getDoc(boardRef);
+          if (!snap.exists()) return false;
+          const data = snap.data();
+          if (!isValidCloudState(data)) return false;
+
+          applyingRemote = true;
+          try{
+            state = data;
+            lastRemoteClientUpdatedAt = Number.isFinite(data.clientUpdatedAt) ? data.clientUpdatedAt : (Number.isFinite(data.updatedAt) ? data.updatedAt : 0);
+            dirty = false;
+            saveLocalOnly();
+          }finally{
+            applyingRemote = false;
+          }
+
+          setSyncStatus('synced', 'synced');
+          return true;
+        }catch(err){
+          console.warn('Firestore load failed; using local fallback:', err);
+          setSyncStatus('offline', 'offline');
+          return false;
         }
       }
 
@@ -1120,11 +1251,11 @@
       }
 
       function resetBoard(){
-        const ok = confirm('Reset the board? This clears images/notes saved in this browser.');
+        const ok = confirm('Reset the board? This clears images/notes saved in this browser (and will sync when online).');
         if (!ok) return;
         state = {version:1, createdAt:Date.now(), updatedAt:Date.now(), items:[]};
         selectedIds.clear();
-        try{ localStorage.removeItem(STORAGE_KEY); }catch{}
+        saveState();
         render();
         toast('Board reset.');
       }
@@ -1217,25 +1348,94 @@
 
       // Startup
       initTheme();
+      setSyncStatus(navigator.onLine ? 'saving' : 'offline', navigator.onLine ? 'connecting…' : 'offline');
+
+      // Load local immediately for fast startup/offline support.
       loadState();
       updateStats();
       render();
+
+      // Init Firestore (best-effort)
+      try{
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        boardRef = doc(db, BOARD_COLLECTION, BOARD_ID);
+      }catch(err){
+        console.warn('Firebase init failed; staying local:', err);
+        setSyncStatus('offline', 'offline');
+      }
+
+      // Cloud wins on initial load (if available)
+      if (db && boardRef && navigator.onLine){
+        setSyncStatus('saving', 'loading…');
+        const loaded = await loadFromCloud();
+        if (loaded){
+          render();
+        }else{
+          // No cloud doc yet (or unreadable) — push our local board up.
+          scheduleCloudSave(600);
+        }
+      }
+
+      // Live updates (multi-device) — apply only when we have no unsynced local edits.
+      if (db && boardRef){
+        try{
+          onSnapshot(boardRef, (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data();
+            if (!isValidCloudState(data)) return;
+
+            const remoteClientUpdatedAt = Number.isFinite(data.clientUpdatedAt) ? data.clientUpdatedAt : (Number.isFinite(data.updatedAt) ? data.updatedAt : 0);
+            if (remoteClientUpdatedAt <= lastRemoteClientUpdatedAt) return;
+
+            if (dirty){
+              // Local changes pending; don't clobber.
+              return;
+            }
+
+            applyingRemote = true;
+            try{
+              state = data;
+              lastRemoteClientUpdatedAt = remoteClientUpdatedAt;
+              saveLocalOnly();
+            }finally{
+              applyingRemote = false;
+            }
+
+            render();
+            setSyncStatus('synced', 'synced');
+            toast('Updated from cloud.');
+          }, (err) => {
+            console.warn('Firestore snapshot error:', err);
+            setSyncStatus('offline', 'offline');
+          });
+        }catch(err){
+          console.warn('Firestore live sync unavailable:', err);
+        }
+      }
 
       // Handle storage changes across tabs
       window.addEventListener('storage', (e) => {
         if (e.key === STORAGE_KEY){
           loadState();
+          // Treat as a local change that should sync.
+          dirty = true;
+          scheduleCloudSave(1500);
           render();
           toast('Board updated in another tab.');
         }
       });
 
-      // Offline/online indicator
-      function netToast(){
-        toast(navigator.onLine ? 'Online' : 'Offline (local only)');
-      }
-      window.addEventListener('online', netToast);
-      window.addEventListener('offline', netToast);
+      // Online/offline indicator
+      window.addEventListener('online', () => {
+        toast('Online');
+        if (dirty) scheduleCloudSave(400);
+        else setSyncStatus('synced', 'synced');
+      });
+      window.addEventListener('offline', () => {
+        toast('Offline (local only)');
+        setSyncStatus('offline', 'offline');
+      });
 
       // Initial compare button state
       updateCompareButton();
