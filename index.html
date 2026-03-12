@@ -308,9 +308,88 @@
     }
 
     .mobile-only{display:none !important;}
+    .desktop-only{display:flex !important;}
     @media (max-width: 768px){
       .mobile-only{display:flex !important;}
+      .desktop-only{display:none !important;}
     }
+
+    /* Mobile hamburger menu */
+    .menu-btn{
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 18px;
+      line-height: 1;
+      min-width: 46px;
+      justify-content:center;
+    }
+    .menu-overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+    }
+    .menu-overlay.open{opacity: 1; pointer-events: auto;}
+
+    .mobile-drawer{
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100dvh;
+      width: min(92vw, 360px);
+      background: color-mix(in oklab, var(--bg) 86%, black 10%);
+      border-left: 1px solid var(--border);
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+      z-index: 45;
+      transform: translateX(110%);
+      transition: transform .22s ease;
+      display:flex;
+      flex-direction: column;
+    }
+    .mobile-drawer.open{transform: translateX(0)}
+    .mobile-drawer header{
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      background: linear-gradient(180deg, color-mix(in oklab, var(--panel2) 70%, transparent), transparent);
+    }
+    .mobile-drawer .menu-body{
+      padding: 12px;
+      overflow:auto;
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mobile-drawer .btn,
+    .mobile-drawer .seg button{
+      width: 100%;
+      justify-content: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+    }
+    .mobile-drawer .seg{justify-content: center}
+
+    /* Board tools row (above grid) */
+    .board-tools{
+      padding: 10px 14px 0;
+      display:flex;
+      align-items:center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Drag reorder */
+    .thumb{touch-action: manipulation;}
+    .thumb[draggable="true"]{cursor: grab;}
+    .thumb.dragging{opacity: .65; transform: scale(.98); cursor: grabbing;}
+    .thumb.drop-target{outline: 2px dashed color-mix(in oklab, var(--brand) 55%, var(--border)); outline-offset: 4px;}
+    .thumb.reorder-anim{will-change: transform;}
 
     .thumb{
       border-radius: 16px;
@@ -513,21 +592,11 @@
         </div>
       </div>
 
-      <div class="actions">
+      <div class="actions desktop-only" id="desktopActions">
         <button class="btn" id="userBtn" type="button" title="Change user">
           <span aria-hidden="true">👤</span>
           <span id="userBtnLabel">User: —</span>
         </button>
-
-        <label class="btn" title="Hide metadata and controls for visual comparison" style="gap:10px">
-          <input id="hideInfoToggle" type="checkbox" />
-          <span>Hide info</span>
-        </label>
-
-        <div class="seg mobile-only" id="mobileGridSeg" role="group" aria-label="Mobile grid size">
-          <button type="button" id="gridModeDefault" aria-pressed="true" title="Large tiles">1×1</button>
-          <button type="button" id="gridModeCompact" aria-pressed="false" title="Compact tiles">2×2</button>
-        </div>
 
         <button class="btn" id="themeBtn" type="button" title="Toggle light/dark">
           <span aria-hidden="true">◐</span>
@@ -556,8 +625,25 @@
           <span>Reset</span>
         </button>
       </div>
+
+      <button class="btn menu-btn mobile-only" id="menuBtn" type="button" aria-label="Open menu" title="Menu">☰</button>
+
+      <!-- Exists for JS to move into the mobile drawer -->
+      <div class="seg" id="mobileGridSeg" role="group" aria-label="Mobile grid size" hidden>
+        <button type="button" id="gridModeDefault" aria-pressed="true" title="Large tiles">1×1</button>
+        <button type="button" id="gridModeCompact" aria-pressed="false" title="Compact tiles">2×2</button>
+      </div>
     </div>
   </div>
+
+  <div id="menuOverlay" class="menu-overlay no-print" hidden></div>
+  <nav id="mobileDrawer" class="mobile-drawer no-print" aria-label="Menu" hidden>
+    <header>
+      <div style="font-weight:800; letter-spacing:.2px;">Menu</div>
+      <button class="btn" id="menuCloseBtn" type="button" aria-label="Close menu" title="Close">✕</button>
+    </header>
+    <div class="menu-body" id="mobileMenuBody"></div>
+  </nav>
 
   <div class="app">
     <div class="layout">
@@ -578,7 +664,7 @@
               <br /><span class="hint" style="display:block; margin-top:6px">Tip (desktop): copy an image then paste here with <strong>Ctrl+V</strong> / <strong>⌘V</strong>.</span>
             </div>
 
-            <div class="row">
+            <div class="row" id="pasteRow">
               <button class="btn mobile-only" id="pasteBtn" type="button" title="Paste an image from your clipboard" style="flex:1 1 auto; justify-content:center">
                 <span aria-hidden="true">📋</span>
                 <span>Paste image</span>
@@ -650,6 +736,13 @@
             <button type="button" class="roomFilter" data-room="Exterior" aria-pressed="false">Exterior</button>
             <button type="button" class="roomFilter" data-room="Other" aria-pressed="false">Other</button>
           </div>
+        </div>
+
+        <div class="board-tools">
+          <label class="btn" title="Hide metadata and controls for visual comparison" style="gap:10px">
+            <input id="hideInfoToggle" type="checkbox" />
+            <span>Hide info</span>
+          </label>
         </div>
 
         <div id="grid" class="grid" aria-live="polite"></div>
@@ -792,6 +885,11 @@
       const selectedIds = new Set();
       let editingId = null;
 
+      let dragId = null;
+      let dragOverId = null;
+      let touchDrag = null; // {id, pointerId, ghost, offsetX, offsetY, lastOverId}
+      let longPressTimer = 0;
+
       let currentUser = '';
       let hideInfo = false;
       let mobileGridMode = 'default'; // 'default' | 'compact'
@@ -805,7 +903,17 @@
         dropzone: $('#dropzone'),
         fileInput: $('#fileInput'),
         defaultRoom: $('#defaultRoom'),
+        pasteRow: $('#pasteRow'),
         pasteBtn: $('#pasteBtn'),
+
+        desktopActions: $('#desktopActions'),
+        menuBtn: $('#menuBtn'),
+        menuCloseBtn: $('#menuCloseBtn'),
+        menuOverlay: $('#menuOverlay'),
+        mobileDrawer: $('#mobileDrawer'),
+        mobileMenuBody: $('#mobileMenuBody'),
+        mobileGridSeg: $('#mobileGridSeg'),
+
         statsPill: $('#statsPill'),
         storagePill: $('#storagePill'),
         syncPill: $('#syncPill'),
@@ -837,6 +945,14 @@
       function uid(){
         if (crypto && 'randomUUID' in crypto) return crypto.randomUUID();
         return 'id-' + Math.random().toString(16).slice(2) + '-' + Date.now().toString(16);
+      }
+
+      function nextOrder(){
+        const max = state.items.reduce((m, it) => {
+          const v = Number.isFinite(it?.order) ? it.order : -1;
+          return Math.max(m, v);
+        }, -1);
+        return max + 1;
       }
 
       function clamp(n, min, max){return Math.max(min, Math.min(max, n));}
@@ -909,9 +1025,30 @@
           const parsed = JSON.parse(raw);
           if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.items)) return;
           state = parsed;
+          normalizeOrder();
         }catch(err){
           console.warn('Failed to load state:', err);
         }
+      }
+
+      function normalizeOrder(){
+        // Ensure every item has a stable numeric order, and that orders are unique.
+        if (!state || !Array.isArray(state.items)) return;
+        const items = state.items;
+        const hasAnyOrder = items.some(it => Number.isFinite(it?.order));
+
+        // If no order exists yet, preserve legacy display: newest first.
+        if (!hasAnyOrder){
+          const legacy = items.slice().sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+          legacy.forEach((it, idx) => { it.order = idx; });
+          return;
+        }
+
+        // Otherwise, re-pack sequentially based on current order then createdAt.
+        items
+          .slice()
+          .sort((a,b)=> (Number(a.order)||0) - (Number(b.order)||0) || (b.createdAt||0) - (a.createdAt||0))
+          .forEach((it, idx) => { it.order = idx; });
       }
 
       function isValidCloudState(obj){
@@ -959,6 +1096,7 @@
           applyingRemote = true;
           try{
             state = data;
+            normalizeOrder();
             lastRemoteClientUpdatedAt = Number.isFinite(data.clientUpdatedAt) ? data.clientUpdatedAt : (Number.isFinite(data.updatedAt) ? data.updatedAt : 0);
             dirty = false;
             saveLocalOnly();
@@ -1055,6 +1193,94 @@
         setMobileGridMode(v === 'compact' ? 'compact' : 'default', {persist:false});
       }
 
+      // Mobile hamburger / drawer
+      function isMobileViewport(){
+        return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+      }
+
+      function openMenu(){
+        if (!els.mobileDrawer || !els.menuOverlay) return;
+        els.menuOverlay.hidden = false;
+        els.mobileDrawer.hidden = false;
+        // Force style flush so transitions run
+        void els.mobileDrawer.offsetWidth;
+        els.menuOverlay.classList.add('open');
+        els.mobileDrawer.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeMenu(){
+        if (!els.mobileDrawer || !els.menuOverlay) return;
+        els.menuOverlay.classList.remove('open');
+        els.mobileDrawer.classList.remove('open');
+        document.body.style.overflow = '';
+        window.setTimeout(() => {
+          // Only hide if still closed
+          if (!els.mobileDrawer.classList.contains('open')){
+            els.menuOverlay.hidden = true;
+            els.mobileDrawer.hidden = true;
+          }
+        }, 240);
+      }
+
+      function moveNode(into, node){
+        if (!into || !node) return;
+        into.appendChild(node);
+      }
+
+      function relocateTopbarControls(){
+        const mobile = isMobileViewport();
+        const importLabel = $('label[for="importJsonInput"]');
+
+        const menuNodes = [
+          els.themeBtn,
+          els.userBtn,
+          els.mobileGridSeg,
+          els.pasteBtn,
+          els.compareBtn,
+          els.exportJsonBtn,
+          importLabel,
+          els.importJsonInput,
+          els.exportPdfBtn,
+          els.resetBtn
+        ].filter(Boolean);
+
+        if (mobile){
+          if (els.mobileMenuBody){
+            for (const n of menuNodes){
+              moveNode(els.mobileMenuBody, n);
+              if (n === els.mobileGridSeg) n.hidden = false;
+            }
+          }
+          // Keep desktop actions container empty/hidden on mobile; items get moved out.
+        }else{
+          if (els.desktopActions){
+            // Put back in desktop actions (except paste button which lives in sidebar)
+            const desktopNodes = [
+              els.userBtn,
+              els.themeBtn,
+              els.compareBtn,
+              els.exportJsonBtn,
+              importLabel,
+              els.importJsonInput,
+              els.exportPdfBtn,
+              els.resetBtn
+            ].filter(Boolean);
+            for (const n of desktopNodes) moveNode(els.desktopActions, n);
+          }
+          // Restore paste button to sidebar row
+          if (els.pasteRow && els.pasteBtn) moveNode(els.pasteRow, els.pasteBtn);
+
+          // Hide mobile grid seg when not in use
+          if (els.mobileGridSeg){
+            els.mobileGridSeg.hidden = true;
+            // Keep it in the DOM (desktopActions is fine)
+            if (els.desktopActions) moveNode(els.desktopActions, els.mobileGridSeg);
+          }
+          closeMenu();
+        }
+      }
+
       function download(filename, text, mime='application/json'){
         const blob = new Blob([text], {type: mime});
         const url = URL.createObjectURL(blob);
@@ -1109,7 +1335,9 @@
       }
 
       function itemsForActiveRoom(){
-        let items = state.items.slice().sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+        // Order is user-controlled (drag-reorder). Fallback to createdAt (newest-first) for older boards.
+        const score = (it) => Number.isFinite(it.order) ? it.order : (-(it.createdAt||0));
+        let items = state.items.slice().sort((a,b)=> score(a) - score(b));
         if (activeRoom !== 'All') items = items.filter(it => it.room === activeRoom);
         if (activeUploader !== 'All') items = items.filter(it => (it.uploadedBy || '') === activeUploader);
         return items;
@@ -1122,7 +1350,108 @@
         els.storagePill.textContent = `Storage: ${bytesToHuman(approx)}`;
       }
 
-      function render(){
+      function orderedIds(){
+        // Total board order (ignores filters)
+        normalizeOrder();
+        return state.items
+          .slice()
+          .sort((a,b)=> (Number(a.order)||0) - (Number(b.order)||0))
+          .map(it => it.id);
+      }
+
+      function applyOrderFromIds(ids){
+        const pos = new Map(ids.map((id, idx) => [id, idx]));
+        for (const it of state.items){
+          if (pos.has(it.id)) it.order = pos.get(it.id);
+        }
+        normalizeOrder();
+      }
+
+      function reorderByIds(dragId, targetId){
+        if (!dragId || !targetId || dragId === targetId) return false;
+        const ids = orderedIds();
+        const from = ids.indexOf(dragId);
+        const to = ids.indexOf(targetId);
+        if (from < 0 || to < 0) return false;
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
+        applyOrderFromIds(ids);
+        return true;
+      }
+
+      function clearDropTargets(){
+        for (const el of $$('.thumb.drop-target', els.grid)) el.classList.remove('drop-target');
+      }
+
+      function setDropTarget(id){
+        clearDropTargets();
+        if (!id) return;
+        const el = els.grid.querySelector(`.thumb[data-id="${CSS.escape(id)}"]`);
+        if (el) el.classList.add('drop-target');
+      }
+
+      function teardownTouchDrag(){
+        if (!touchDrag) return;
+        try{
+          touchDrag.ghost?.remove();
+        }catch{}
+        touchDrag = null;
+        clearDropTargets();
+        for (const el of $$('.thumb.dragging', els.grid)) el.classList.remove('dragging');
+        document.body.style.userSelect = '';
+      }
+
+      function createGhostFrom(el, x, y){
+        const r = el.getBoundingClientRect();
+        const g = el.cloneNode(true);
+        g.style.position = 'fixed';
+        g.style.left = r.left + 'px';
+        g.style.top = r.top + 'px';
+        g.style.width = r.width + 'px';
+        g.style.height = r.height + 'px';
+        g.style.margin = '0';
+        g.style.zIndex = '60';
+        g.style.pointerEvents = 'none';
+        g.style.opacity = '0.85';
+        g.style.transform = 'scale(0.98)';
+        g.style.boxShadow = '0 22px 60px rgba(0,0,0,.45)';
+        document.body.appendChild(g);
+        return { ghost: g, offsetX: x - r.left, offsetY: y - r.top };
+      }
+
+      function captureThumbRects(){
+        const map = new Map();
+        for (const el of $$('.thumb', els.grid)){
+          const id = el.dataset.id;
+          if (!id) continue;
+          map.set(id, el.getBoundingClientRect());
+        }
+        return map;
+      }
+
+      function animateThumbsFrom(prevRects){
+        if (!prevRects || prevRects.size === 0) return;
+        for (const el of $$('.thumb', els.grid)){
+          const id = el.dataset.id;
+          const prev = prevRects.get(id);
+          if (!prev) continue;
+          const next = el.getBoundingClientRect();
+          const dx = prev.left - next.left;
+          const dy = prev.top - next.top;
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+          el.classList.add('reorder-anim');
+          el.animate(
+            [
+              { transform: `translate(${dx}px, ${dy}px)` },
+              { transform: 'translate(0, 0)' }
+            ],
+            { duration: 180, easing: 'cubic-bezier(.2,.9,.2,1)' }
+          );
+          window.setTimeout(() => el.classList.remove('reorder-anim'), 260);
+        }
+      }
+
+      function render({animate=false} = {}){
+        const prevRects = animate ? captureThumbRects() : null;
         const items = itemsForActiveRoom();
         els.grid.innerHTML = '';
 
@@ -1132,6 +1461,104 @@
           const card = document.createElement('div');
           card.className = 'thumb';
           card.dataset.id = it.id;
+          card.draggable = !isMobileViewport();
+
+          // Desktop drag & drop reorder (HTML5 DnD)
+          card.addEventListener('dragstart', (e) => {
+            dragId = it.id;
+            card.classList.add('dragging');
+            try{ e.dataTransfer.setData('text/plain', it.id); }catch{}
+            try{ e.dataTransfer.effectAllowed = 'move'; }catch{}
+          });
+          card.addEventListener('dragend', () => {
+            dragId = null;
+            dragOverId = null;
+            card.classList.remove('dragging');
+            clearDropTargets();
+          });
+          card.addEventListener('dragover', (e) => {
+            if (!dragId || dragId === it.id) return;
+            e.preventDefault();
+            dragOverId = it.id;
+            setDropTarget(it.id);
+            try{ e.dataTransfer.dropEffect = 'move'; }catch{}
+          });
+          card.addEventListener('drop', (e) => {
+            if (!dragId) return;
+            e.preventDefault();
+            const did = dragId;
+            const tid = it.id;
+            if (did && tid && did !== tid){
+              const changed = reorderByIds(did, tid);
+              if (changed){
+                saveState();
+                render({animate:true});
+                toast('Reordered.');
+              }
+            }
+          });
+
+          // Mobile: long-press to drag
+          card.addEventListener('pointerdown', (e) => {
+            if (!isMobileViewport()) return;
+            if (e.pointerType !== 'touch') return;
+            if (e.button !== undefined && e.button !== 0) return;
+
+            // Avoid starting drag when tapping controls inside the card
+            if (e.target && e.target.closest && e.target.closest('button, input, label, select, textarea')) return;
+
+            window.clearTimeout(longPressTimer);
+            longPressTimer = window.setTimeout(() => {
+              // start touch drag
+              const {ghost, offsetX, offsetY} = createGhostFrom(card, e.clientX, e.clientY);
+              touchDrag = { id: it.id, pointerId: e.pointerId, ghost, offsetX, offsetY, lastOverId: null };
+              card.classList.add('dragging');
+              document.body.style.userSelect = 'none';
+              try{ card.setPointerCapture(e.pointerId); }catch{}
+            }, 650);
+          });
+          card.addEventListener('pointermove', (e) => {
+            if (!isMobileViewport()) return;
+            if (touchDrag && touchDrag.pointerId === e.pointerId){
+              e.preventDefault();
+              // move ghost
+              const x = e.clientX - touchDrag.offsetX;
+              const y = e.clientY - touchDrag.offsetY;
+              touchDrag.ghost.style.left = x + 'px';
+              touchDrag.ghost.style.top = y + 'px';
+
+              // find drop target
+              const under = document.elementFromPoint(e.clientX, e.clientY);
+              const t = under && under.closest ? under.closest('.thumb') : null;
+              const tid = t && t.dataset ? t.dataset.id : null;
+              if (tid && tid !== touchDrag.id && tid !== touchDrag.lastOverId){
+                touchDrag.lastOverId = tid;
+                setDropTarget(tid);
+              }
+            }
+          });
+          card.addEventListener('pointerup', (e) => {
+            window.clearTimeout(longPressTimer);
+            if (touchDrag && touchDrag.pointerId === e.pointerId){
+              const targetId = touchDrag.lastOverId;
+              const did = touchDrag.id;
+              teardownTouchDrag();
+              if (targetId && did && targetId !== did){
+                const changed = reorderByIds(did, targetId);
+                if (changed){
+                  saveState();
+                  render({animate:true});
+                  toast('Reordered.');
+                }
+              }
+            }
+          });
+          card.addEventListener('pointercancel', (e) => {
+            window.clearTimeout(longPressTimer);
+            if (touchDrag && touchDrag.pointerId === e.pointerId){
+              teardownTouchDrag();
+            }
+          });
 
           const img = document.createElement('img');
           img.src = it.dataUrl;
@@ -1233,6 +1660,7 @@
 
         updateStats();
         updateCompareButton();
+        if (animate) animateThumbsFrom(prevRects);
       }
 
       function setActiveRoom(room){
@@ -1326,6 +1754,7 @@
               uploadedBy: (currentUser === 'Ronnie' || currentUser === 'Nicola') ? currentUser : undefined,
               createdAt: Date.now(),
               updatedAt: Date.now(),
+              order: nextOrder(),
               dataUrl: scaled
             };
             state.items.push(item);
@@ -1378,6 +1807,7 @@
             uploadedBy: up,
             createdAt: Number.isFinite(it.createdAt) ? it.createdAt : Date.now(),
             updatedAt: Date.now(),
+            order: Number.isFinite(it.order) ? it.order : undefined,
             dataUrl: it.dataUrl
           });
         }
@@ -1388,6 +1818,7 @@
           updatedAt: Date.now(),
           items: cleaned
         };
+        normalizeOrder();
         selectedIds.clear();
         saveState();
         render();
@@ -1555,6 +1986,30 @@
       els.resetBtn.addEventListener('click', resetBoard);
       els.themeBtn.addEventListener('click', toggleTheme);
 
+      // Mobile menu interactions
+      if (els.menuBtn) els.menuBtn.addEventListener('click', () => {
+        relocateTopbarControls();
+        openMenu();
+      });
+      if (els.menuCloseBtn) els.menuCloseBtn.addEventListener('click', closeMenu);
+      if (els.menuOverlay) els.menuOverlay.addEventListener('click', closeMenu);
+      if (els.mobileDrawer){
+        els.mobileDrawer.addEventListener('click', (e) => {
+          const t = e.target;
+          if (!t) return;
+          // Close menu when a control is activated
+          if (t.closest && t.closest('button.btn, label.btn, .seg button')){
+            // Let file input dialog open before closing
+            window.setTimeout(closeMenu, 60);
+          }
+        });
+      }
+      window.addEventListener('resize', () => {
+        // Debounce lightly
+        window.clearTimeout(relocateTopbarControls._t);
+        relocateTopbarControls._t = window.setTimeout(relocateTopbarControls, 120);
+      });
+
       if (els.userBtn) els.userBtn.addEventListener('click', () => els.userDialog && els.userDialog.showModal());
 
       if (els.hideInfoToggle){
@@ -1602,6 +2057,10 @@
           exportJSON();
         }
         if (e.key === 'Escape'){
+          if (els.mobileDrawer && els.mobileDrawer.classList.contains('open')){
+            e.preventDefault();
+            closeMenu();
+          }
           // allow dialogs to close naturally
         }
       });
@@ -1610,6 +2069,7 @@
       initTheme();
       initHideInfo();
       initMobileGridMode();
+      relocateTopbarControls();
       setSyncStatus(navigator.onLine ? 'saving' : 'offline', navigator.onLine ? 'connecting…' : 'offline');
 
       // Load local immediately for fast startup/offline support.
@@ -1659,6 +2119,7 @@
             applyingRemote = true;
             try{
               state = data;
+              normalizeOrder();
               lastRemoteClientUpdatedAt = remoteClientUpdatedAt;
               saveLocalOnly();
             }finally{
