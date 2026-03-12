@@ -734,7 +734,7 @@
             <span>Hide info</span>
           </label>
 
-          <div class="seg mobile-only" id="mobileGridSeg" role="group" aria-label="Mobile grid size">
+          <div class="seg" id="mobileGridSeg" role="group" aria-label="Mobile grid size" style="display: flex;">
             <button type="button" id="gridModeDefault" aria-pressed="true" title="Large tiles">1×1</button>
             <button type="button" id="gridModeCompact" aria-pressed="false" title="Compact tiles">2×2</button>
           </div>
@@ -1570,7 +1570,10 @@
 
           const title = document.createElement('div');
           title.className = 'title';
-          title.textContent = (it.label || '').trim();
+          // Only show label if it exists AND doesn't match the filename (migration for old data)
+          const labelText = (it.label || '').trim();
+          const shouldShowLabel = labelText && labelText !== it.fileName;
+          title.textContent = shouldShowLabel ? labelText : '';
 
           const room = document.createElement('div');
           room.className = 'room';
