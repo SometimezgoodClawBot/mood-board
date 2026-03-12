@@ -288,6 +288,28 @@
     }
     @media (max-width: 640px){
       .grid{grid-template-columns: 1fr;}
+      html[data-mobile-grid="compact"] .grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
+    }
+    @media (max-width: 380px){
+      html[data-mobile-grid="compact"] .grid{grid-template-columns: 1fr;}
+    }
+
+    html[data-hide-info="true"] .thumb .meta{display:none;}
+    html[data-hide-info="true"] .thumb{min-height: unset;}
+    html[data-hide-info="true"] .thumb img{height: 240px;}
+    @media (min-width: 641px){
+      html[data-hide-info="true"] .thumb img{height: 220px;}
+    }
+
+    .uploader{
+      font-size: 11px;
+      color: color-mix(in oklab, var(--muted) 90%, var(--text));
+      line-height: 1.2;
+    }
+
+    .mobile-only{display:none !important;}
+    @media (max-width: 768px){
+      .mobile-only{display:flex !important;}
     }
 
     .thumb{
@@ -492,6 +514,21 @@
       </div>
 
       <div class="actions">
+        <button class="btn" id="userBtn" type="button" title="Change user">
+          <span aria-hidden="true">👤</span>
+          <span id="userBtnLabel">User: —</span>
+        </button>
+
+        <label class="btn" title="Hide metadata and controls for visual comparison" style="gap:10px">
+          <input id="hideInfoToggle" type="checkbox" />
+          <span>Hide info</span>
+        </label>
+
+        <div class="seg mobile-only" id="mobileGridSeg" role="group" aria-label="Mobile grid size">
+          <button type="button" id="gridModeDefault" aria-pressed="true" title="Large tiles">1×1</button>
+          <button type="button" id="gridModeCompact" aria-pressed="false" title="Compact tiles">2×2</button>
+        </div>
+
         <button class="btn" id="themeBtn" type="button" title="Toggle light/dark">
           <span aria-hidden="true">◐</span>
           <span>Theme</span>
@@ -538,6 +575,14 @@
             <div class="hint">
               Drag & drop images here (JPG/PNG/WEBP). Your board syncs to the cloud when online and stays available offline in this browser.
               <br />Tip: keep images reasonably sized for faster sync and PDF/JSON exports.
+              <br /><span class="hint" style="display:block; margin-top:6px">Tip (desktop): copy an image then paste here with <strong>Ctrl+V</strong> / <strong>⌘V</strong>.</span>
+            </div>
+
+            <div class="row">
+              <button class="btn mobile-only" id="pasteBtn" type="button" title="Paste an image from your clipboard" style="flex:1 1 auto; justify-content:center">
+                <span aria-hidden="true">📋</span>
+                <span>Paste image</span>
+              </button>
             </div>
 
             <div class="row" style="margin-top: 4px">
@@ -551,6 +596,17 @@
                   <option value="Exterior">Exterior</option>
                   <option value="Other" selected>Other</option>
                 </select>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top: 2px">
+              <div class="field" style="min-width: 240px">
+                <div class="label">Show (uploader)</div>
+                <div class="seg" role="group" aria-label="Uploader filter">
+                  <button type="button" class="uploaderFilter" data-uploader="All" aria-pressed="true">All</button>
+                  <button type="button" class="uploaderFilter" data-uploader="Ronnie" aria-pressed="false">Ronnie</button>
+                  <button type="button" class="uploaderFilter" data-uploader="Nicola" aria-pressed="false">Nicola</button>
+                </div>
               </div>
             </div>
 
@@ -604,6 +660,24 @@
       </main>
     </div>
   </div>
+
+  <dialog id="userDialog">
+    <form method="dialog" id="userForm">
+      <div class="modal-header">
+        <div class="modal-title">Who’s using the app?</div>
+        <div class="row">
+          <button class="btn" value="cancel" type="submit">Close</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="hint" style="margin-bottom: 12px">This name will be used to tag new uploads (e.g., “Added by Ronnie”).</div>
+        <div class="row" style="gap: 10px">
+          <button class="btn primary" id="chooseRonnie" value="Ronnie" type="submit" style="flex:1 1 160px; justify-content:center">Ronnie</button>
+          <button class="btn primary" id="chooseNicola" value="Nicola" type="submit" style="flex:1 1 160px; justify-content:center">Nicola</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="editDialog">
     <form method="dialog" id="editForm">
@@ -678,6 +752,9 @@
       const ROOMS = ["Kitchen","Living Room","Bedroom","Bathroom","Exterior","Other"];
       const STORAGE_KEY = 'moodBoard.v1';
       const THEME_KEY = 'moodBoard.theme';
+      const CURRENT_USER_KEY = 'currentUser';
+      const HIDE_INFO_KEY = 'moodBoard.hideInfo';
+      const MOBILE_GRID_KEY = 'mobileGridMode';
 
       // Firebase (Firestore) cloud sync
       const firebaseConfig = {
@@ -711,8 +788,13 @@
       };
 
       let activeRoom = 'All';
+      let activeUploader = 'All';
       const selectedIds = new Set();
       let editingId = null;
+
+      let currentUser = '';
+      let hideInfo = false;
+      let mobileGridMode = 'default'; // 'default' | 'compact'
 
       const $ = (sel, el=document) => el.querySelector(sel);
       const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
@@ -723,6 +805,7 @@
         dropzone: $('#dropzone'),
         fileInput: $('#fileInput'),
         defaultRoom: $('#defaultRoom'),
+        pasteBtn: $('#pasteBtn'),
         statsPill: $('#statsPill'),
         storagePill: $('#storagePill'),
         syncPill: $('#syncPill'),
@@ -732,6 +815,12 @@
         compareBtn: $('#compareBtn'),
         resetBtn: $('#resetBtn'),
         themeBtn: $('#themeBtn'),
+        userBtn: $('#userBtn'),
+        userBtnLabel: $('#userBtnLabel'),
+        hideInfoToggle: $('#hideInfoToggle'),
+        gridModeDefault: $('#gridModeDefault'),
+        gridModeCompact: $('#gridModeCompact'),
+        userDialog: $('#userDialog'),
         toast: $('#toast'),
         editDialog: $('#editDialog'),
         editPreview: $('#editPreview'),
@@ -907,6 +996,65 @@
         setTheme(null); toast('Theme: system');
       }
 
+      function setCurrentUser(name, {persist=true, quiet=false} = {}){
+        const n = (name === 'Ronnie' || name === 'Nicola') ? name : '';
+        currentUser = n;
+        if (els.userBtnLabel) els.userBtnLabel.textContent = `User: ${n || '—'}`;
+        if (persist){
+          try{
+            if (n) localStorage.setItem(CURRENT_USER_KEY, n);
+            else localStorage.removeItem(CURRENT_USER_KEY);
+          }catch{}
+        }
+        // Save to board state as last editor (syncs to Firestore with board)
+        state.lastEditedBy = n || undefined;
+        state.lastEditedAt = Date.now();
+        saveState();
+        if (!quiet && n) toast(`User: ${n}`);
+      }
+
+      function ensureUserSelected(){
+        try{ currentUser = localStorage.getItem(CURRENT_USER_KEY) || ''; }catch{ currentUser = ''; }
+        if (currentUser !== 'Ronnie' && currentUser !== 'Nicola') currentUser = '';
+        if (els.userBtnLabel) els.userBtnLabel.textContent = `User: ${currentUser || '—'}`;
+        if (!currentUser && els.userDialog){
+          els.userDialog.showModal();
+        }
+      }
+
+      function setHideInfo(on, {persist=true} = {}){
+        hideInfo = !!on;
+        document.documentElement.dataset.hideInfo = hideInfo ? 'true' : 'false';
+        if (els.hideInfoToggle) els.hideInfoToggle.checked = hideInfo;
+        if (persist){
+          try{ localStorage.setItem(HIDE_INFO_KEY, hideInfo ? '1' : '0'); }catch{}
+        }
+      }
+
+      function initHideInfo(){
+        let v = '0';
+        try{ v = localStorage.getItem(HIDE_INFO_KEY) || '0'; }catch{}
+        setHideInfo(v === '1', {persist:false});
+      }
+
+      function setMobileGridMode(mode, {persist=true} = {}){
+        mobileGridMode = (mode === 'compact') ? 'compact' : 'default';
+        document.documentElement.dataset.mobileGrid = mobileGridMode;
+        if (els.gridModeDefault && els.gridModeCompact){
+          els.gridModeDefault.setAttribute('aria-pressed', mobileGridMode === 'default' ? 'true' : 'false');
+          els.gridModeCompact.setAttribute('aria-pressed', mobileGridMode === 'compact' ? 'true' : 'false');
+        }
+        if (persist){
+          try{ localStorage.setItem(MOBILE_GRID_KEY, mobileGridMode); }catch{}
+        }
+      }
+
+      function initMobileGridMode(){
+        let v = 'default';
+        try{ v = localStorage.getItem(MOBILE_GRID_KEY) || 'default'; }catch{}
+        setMobileGridMode(v === 'compact' ? 'compact' : 'default', {persist:false});
+      }
+
       function download(filename, text, mime='application/json'){
         const blob = new Blob([text], {type: mime});
         const url = URL.createObjectURL(blob);
@@ -961,9 +1109,10 @@
       }
 
       function itemsForActiveRoom(){
-        const items = state.items.slice().sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-        if (activeRoom === 'All') return items;
-        return items.filter(it => it.room === activeRoom);
+        let items = state.items.slice().sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+        if (activeRoom !== 'All') items = items.filter(it => it.room === activeRoom);
+        if (activeUploader !== 'All') items = items.filter(it => (it.uploadedBy || '') === activeUploader);
+        return items;
       }
 
       function updateStats(){
@@ -1068,7 +1217,12 @@
           controls.appendChild(left);
           controls.appendChild(delBtn);
 
+          const uploader = document.createElement('div');
+          uploader.className = 'uploader';
+          uploader.textContent = it.uploadedBy ? `Added by ${it.uploadedBy}` : '';
+
           meta.appendChild(top);
+          if (uploader.textContent) meta.appendChild(uploader);
           meta.appendChild(notes);
           meta.appendChild(controls);
 
@@ -1085,6 +1239,15 @@
         activeRoom = room;
         for (const b of $$('.roomFilter')){
           const on = b.dataset.room === room;
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        render();
+      }
+
+      function setActiveUploader(uploader){
+        activeUploader = (uploader === 'Ronnie' || uploader === 'Nicola') ? uploader : 'All';
+        for (const b of $$('.uploaderFilter')){
+          const on = b.dataset.uploader === activeUploader;
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         }
         render();
@@ -1133,10 +1296,16 @@
         toast('Saved.');
       }
 
-      async function handleFiles(fileList){
+      async function handleFiles(fileList, {quiet=false} = {}){
         const files = Array.from(fileList || []).filter(f => f && f.type && f.type.startsWith('image/'));
         if (!files.length){
-          toast('No images found.');
+          if (!quiet) toast('No images found.');
+          return;
+        }
+
+        if (currentUser !== 'Ronnie' && currentUser !== 'Nicola'){
+          if (els.userDialog) els.userDialog.showModal();
+          toast('Choose a user to tag uploads.');
           return;
         }
 
@@ -1154,6 +1323,7 @@
               fileName: f.name,
               fileSize: f.size,
               mime: f.type,
+              uploadedBy: (currentUser === 'Ronnie' || currentUser === 'Nicola') ? currentUser : undefined,
               createdAt: Date.now(),
               updatedAt: Date.now(),
               dataUrl: scaled
@@ -1167,7 +1337,7 @@
         }
 
         render();
-        toast(`Added ${files.length} image${files.length===1?'':'s'}.`);
+        if (!quiet) toast(`Added ${files.length} image${files.length===1?'':'s'}.`);
       }
 
       function exportJSON(){
@@ -1196,6 +1366,7 @@
           if (!it || typeof it !== 'object') continue;
           if (typeof it.dataUrl !== 'string' || !it.dataUrl.startsWith('data:image/')) continue;
           const room = ROOMS.includes(it.room) ? it.room : 'Other';
+          const up = (it.uploadedBy === 'Ronnie' || it.uploadedBy === 'Nicola') ? it.uploadedBy : undefined;
           cleaned.push({
             id: typeof it.id === 'string' ? it.id : uid(),
             room,
@@ -1204,6 +1375,7 @@
             fileName: typeof it.fileName === 'string' ? it.fileName.slice(0,120) : '',
             fileSize: Number.isFinite(it.fileSize) ? it.fileSize : undefined,
             mime: typeof it.mime === 'string' ? it.mime : 'image/*',
+            uploadedBy: up,
             createdAt: Number.isFinite(it.createdAt) ? it.createdAt : Date.now(),
             updatedAt: Date.now(),
             dataUrl: it.dataUrl
@@ -1270,6 +1442,9 @@
       $$('.roomFilter').forEach(btn => {
         btn.addEventListener('click', () => setActiveRoom(btn.dataset.room));
       });
+      $$('.uploaderFilter').forEach(btn => {
+        btn.addEventListener('click', () => setActiveUploader(btn.dataset.uploader));
+      });
 
       els.fileInput.addEventListener('change', async (e) => {
         const files = e.target.files;
@@ -1298,6 +1473,69 @@
         await handleFiles(dt.files);
       });
 
+      // Paste images (desktop)
+      document.addEventListener('paste', async (e) => {
+        try{
+          const t = e.target;
+          if (t && (t.closest?.('input, textarea, [contenteditable="true"]'))) return;
+
+          const items = e.clipboardData && e.clipboardData.items ? Array.from(e.clipboardData.items) : [];
+          const imageItems = items.filter(it => it && it.kind === 'file' && it.type && it.type.startsWith('image/'));
+          if (!imageItems.length) return;
+
+          e.preventDefault();
+
+          const files = [];
+          for (const it of imageItems){
+            const blob = it.getAsFile();
+            if (!blob) continue;
+            const ext = (blob.type || 'image/png').split('/')[1] || 'png';
+            files.push(new File([blob], `pasted-${Date.now()}.${ext}`, {type: blob.type || 'image/png'}));
+          }
+          if (files.length){
+            await handleFiles(files, {quiet:true});
+            toast(`Pasted ${files.length} image${files.length===1?'':'s'}.`);
+          }
+        }catch(err){
+          console.warn('Paste failed:', err);
+          toast('Paste failed.');
+        }
+      });
+
+      // Paste images (mobile button) – Clipboard API
+      if (els.pasteBtn){
+        els.pasteBtn.addEventListener('click', async () => {
+          if (!navigator.clipboard || !navigator.clipboard.read){
+            toast('Clipboard paste is not supported on this browser.');
+            return;
+          }
+          try{
+            const clipItems = await navigator.clipboard.read();
+            let added = 0;
+            for (const ci of clipItems){
+              const types = ci.types || [];
+              const imgType = types.find(t => t.startsWith('image/'));
+              if (!imgType) continue;
+              const blob = await ci.getType(imgType);
+              const ext = (imgType.split('/')[1] || 'png');
+              const file = new File([blob], `pasted-${Date.now()}.${ext}`, {type: imgType});
+              await handleFiles([file], {quiet:true});
+              added++;
+            }
+            if (!added) toast('No image found in clipboard.');
+            else toast(`Pasted ${added} image${added===1?'':'s'}.`);
+          }catch(err){
+            console.warn('Clipboard read failed:', err);
+            const name = err && err.name ? err.name : '';
+            if (name === 'NotAllowedError' || name === 'SecurityError'){
+              toast('Clipboard permission denied. Try again and allow paste.');
+            }else{
+              toast('Could not paste from clipboard.');
+            }
+          }
+        });
+      }
+
       els.exportJsonBtn.addEventListener('click', exportJSON);
       els.importJsonInput.addEventListener('change', async (e) => {
         const file = e.target.files && e.target.files[0];
@@ -1316,6 +1554,28 @@
       els.compareBtn.addEventListener('click', openCompare);
       els.resetBtn.addEventListener('click', resetBoard);
       els.themeBtn.addEventListener('click', toggleTheme);
+
+      if (els.userBtn) els.userBtn.addEventListener('click', () => els.userDialog && els.userDialog.showModal());
+
+      if (els.hideInfoToggle){
+        els.hideInfoToggle.addEventListener('change', () => {
+          setHideInfo(els.hideInfoToggle.checked);
+          toast(hideInfo ? 'Hide info: on' : 'Hide info: off');
+        });
+      }
+
+      if (els.gridModeDefault) els.gridModeDefault.addEventListener('click', () => { setMobileGridMode('default'); toast('Grid: 1×1'); });
+      if (els.gridModeCompact) els.gridModeCompact.addEventListener('click', () => { setMobileGridMode('compact'); toast('Grid: 2×2'); });
+
+      // User chooser dialog
+      $('#userForm')?.addEventListener('submit', (e) => {
+        const v = els.userDialog?.returnValue;
+        if (v === 'Ronnie' || v === 'Nicola'){
+          e.preventDefault();
+          setCurrentUser(v);
+          els.userDialog.close();
+        }
+      });
 
       // Edit dialog interactions
       els.editNotes.addEventListener('input', updateNotesCount);
@@ -1348,10 +1608,13 @@
 
       // Startup
       initTheme();
+      initHideInfo();
+      initMobileGridMode();
       setSyncStatus(navigator.onLine ? 'saving' : 'offline', navigator.onLine ? 'connecting…' : 'offline');
 
       // Load local immediately for fast startup/offline support.
       loadState();
+      ensureUserSelected();
       updateStats();
       render();
 
