@@ -290,9 +290,6 @@
       .grid{grid-template-columns: 1fr;}
       html[data-mobile-grid="compact"] .grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
     }
-    @media (max-width: 380px){
-      html[data-mobile-grid="compact"] .grid{grid-template-columns: 1fr;}
-    }
 
     html[data-hide-info="true"] .thumb .meta{display:none;}
     html[data-hide-info="true"] .thumb{min-height: unset;}
@@ -448,7 +445,6 @@
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
-      min-height: 49px;
     }
 
     .thumb .controls{
@@ -627,12 +623,6 @@
       </div>
 
       <button class="btn menu-btn mobile-only" id="menuBtn" type="button" aria-label="Open menu" title="Menu">☰</button>
-
-      <!-- Exists for JS to move into the mobile drawer -->
-      <div class="seg" id="mobileGridSeg" role="group" aria-label="Mobile grid size" hidden>
-        <button type="button" id="gridModeDefault" aria-pressed="true" title="Large tiles">1×1</button>
-        <button type="button" id="gridModeCompact" aria-pressed="false" title="Compact tiles">2×2</button>
-      </div>
     </div>
   </div>
 
@@ -743,6 +733,11 @@
             <input id="hideInfoToggle" type="checkbox" />
             <span>Hide info</span>
           </label>
+
+          <div class="seg mobile-only" id="mobileGridSeg" role="group" aria-label="Mobile grid size">
+            <button type="button" id="gridModeDefault" aria-pressed="true" title="Large tiles">1×1</button>
+            <button type="button" id="gridModeCompact" aria-pressed="false" title="Compact tiles">2×2</button>
+          </div>
         </div>
 
         <div id="grid" class="grid" aria-live="polite"></div>
@@ -799,6 +794,15 @@
                 <option value="Bathroom">Bathroom</option>
                 <option value="Exterior">Exterior</option>
                 <option value="Other">Other</option>
+              </select>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="field">
+              <div class="label">Uploaded by</div>
+              <select id="editUploader">
+                <option value="">—</option>
+                <option value="Ronnie">Ronnie</option>
+                <option value="Nicola">Nicola</option>
               </select>
             </div>
             <div style="height: 10px"></div>
@@ -934,6 +938,7 @@
         editPreview: $('#editPreview'),
         editMeta: $('#editMeta'),
         editRoom: $('#editRoom'),
+        editUploader: $('#editUploader'),
         editLabel: $('#editLabel'),
         editNotes: $('#editNotes'),
         notesCount: $('#notesCount'),
@@ -1235,7 +1240,6 @@
         const menuNodes = [
           els.themeBtn,
           els.userBtn,
-          els.mobileGridSeg,
           els.pasteBtn,
           els.compareBtn,
           els.exportJsonBtn,
@@ -1249,7 +1253,6 @@
           if (els.mobileMenuBody){
             for (const n of menuNodes){
               moveNode(els.mobileMenuBody, n);
-              if (n === els.mobileGridSeg) n.hidden = false;
             }
           }
           // Keep desktop actions container empty/hidden on mobile; items get moved out.
@@ -1271,12 +1274,6 @@
           // Restore paste button to sidebar row
           if (els.pasteRow && els.pasteBtn) moveNode(els.pasteRow, els.pasteBtn);
 
-          // Hide mobile grid seg when not in use
-          if (els.mobileGridSeg){
-            els.mobileGridSeg.hidden = true;
-            // Keep it in the DOM (desktopActions is fine)
-            if (els.desktopActions) moveNode(els.desktopActions, els.mobileGridSeg);
-          }
           closeMenu();
         }
       }
@@ -1573,18 +1570,18 @@
 
           const title = document.createElement('div');
           title.className = 'title';
-          title.textContent = it.label || it.fileName || 'Untitled';
+          title.textContent = (it.label || '').trim();
 
           const room = document.createElement('div');
           room.className = 'room';
           room.textContent = it.room || 'Other';
 
-          top.appendChild(title);
+          if (title.textContent) top.appendChild(title);
           top.appendChild(room);
 
           const notes = document.createElement('div');
           notes.className = 'notes';
-          notes.textContent = it.notes || '—';
+          notes.textContent = (it.notes || '').trim();
 
           const controls = document.createElement('div');
           controls.className = 'controls';
@@ -1650,7 +1647,7 @@
 
           meta.appendChild(top);
           if (uploader.textContent) meta.appendChild(uploader);
-          meta.appendChild(notes);
+          if (notes.textContent) meta.appendChild(notes);
           meta.appendChild(controls);
 
           card.appendChild(img);
@@ -1694,6 +1691,7 @@
         els.editPreview.src = it.dataUrl;
         els.editPreview.alt = it.label || it.fileName || 'Image preview';
         els.editRoom.value = it.room || 'Other';
+        if (els.editUploader) els.editUploader.value = (it.uploadedBy === 'Ronnie' || it.uploadedBy === 'Nicola') ? it.uploadedBy : '';
         els.editLabel.value = it.label || '';
         els.editNotes.value = it.notes || '';
         updateNotesCount();
@@ -1716,6 +1714,10 @@
         const it = state.items.find(x => x.id === editingId);
         if (!it) return;
         it.room = (ROOMS.includes(els.editRoom.value) ? els.editRoom.value : 'Other');
+        if (els.editUploader){
+          const up = els.editUploader.value;
+          it.uploadedBy = (up === 'Ronnie' || up === 'Nicola') ? up : undefined;
+        }
         it.label = (els.editLabel.value || '').trim();
         it.notes = (els.editNotes.value || '').trim();
         it.updatedAt = Date.now();
