@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firebase Debug</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+    .log { margin: 10px 0; padding: 10px; background: #000; border: 1px solid #333; }
+    .error { color: #f00; }
+    .success { color: #0f0; }
+    .warn { color: #fa0; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Firebase Diagnostics</h1>
+  <div id="output"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+
+    const log = (msg, type = 'log') => {
+      const div = document.createElement('div');
+      div.className = `log ${type}`;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      document.getElementById('output').appendChild(div);
+      console.log(msg);
+    };
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCZ73qX7khfWrmuewpfW8jDwD0svENsIcI",
+      authDomain: "mood-board-e1e35.firebaseapp.com",
+      projectId: "mood-board-e1e35",
+      storageBucket: "mood-board-e1e35.firebasestorage.app",
+      messagingSenderId: "917618272684",
+      appId: "1:917618272684:web:d71afc5be4f210d5897209"
+    };
+
+    (async () => {
+      log('Starting Firebase diagnostics...');
+      
+      // 1. Check network
+      log(`Network: ${navigator.onLine ? 'ONLINE ✓' : 'OFFLINE ✗'}`, navigator.onLine ? 'success' : 'error');
+
+      // 2. Init Firebase
+      try {
+        const app = initializeApp(firebaseConfig);
+        log('Firebase app initialized ✓', 'success');
+        
+        const db = getFirestore(app);
+        log('Firestore initialized ✓', 'success');
+
+        const boardRef = doc(db, 'boards', 'default');
+        log('Document reference created: boards/default ✓', 'success');
+
+        // 3. Try to read
+        log('Attempting to read boards/default...');
+        try {
+          const snap = await getDoc(boardRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            log(`✓ Document exists! Items: ${data.items?.length || 0}, Version: ${data.version}`, 'success');
+            log(`Last updated: ${new Date(data.updatedAt).toLocaleString()}`, 'success');
+            log(`Cloud timestamp: ${data.cloudUpdatedAt?.toDate?.() || 'none'}`, 'success');
+          } else {
+            log('Document does NOT exist in Firestore', 'warn');
+          }
+        } catch (readErr) {
+          log(`✗ READ FAILED: ${readErr.code} - ${readErr.message}`, 'error');
+          log(`Full error: ${JSON.stringify(readErr, null, 2)}`, 'error');
+        }
+
+        // 4. Try to write a test doc
+        log('Attempting test write...');
+        try {
+          const testPayload = {
+            version: 1,
+            items: [],
+            updatedAt: Date.now(),
+            clientUpdatedAt: Date.now(),
+            cloudUpdatedAt: serverTimestamp(),
+            testWrite: true,
+            testTimestamp: new Date().toISOString()
+          };
+          await setDoc(boardRef, testPayload, { merge: false });
+          log('✓ TEST WRITE SUCCEEDED!', 'success');
+          
+          // Verify it stuck
+          log('Verifying write...');
+          const verifySnap = await getDoc(boardRef);
+          if (verifySnap.exists() && verifySnap.data().testWrite === true) {
+            log('✓ WRITE VERIFIED! Data persisted correctly.', 'success');
+          } else {
+            log('✗ WRITE VERIFICATION FAILED! Document exists but test data missing.', 'error');
+          }
+        } catch (writeErr) {
+          log(`✗ WRITE FAILED: ${writeErr.code} - ${writeErr.message}`, 'error');
+          log(`Full error: ${JSON.stringify(writeErr, null, 2)}`, 'error');
+        }
+
+      } catch (err) {
+        log(`✗ FIREBASE INIT FAILED: ${err.message}`, 'error');
+        log(`Full error: ${JSON.stringify(err, null, 2)}`, 'error');
+      }
+
+      log('--- Diagnostics complete ---');
+    })();
+  </script>
+</body>
+</html>
