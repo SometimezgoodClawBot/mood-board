@@ -527,6 +527,65 @@
     }
     dialog::backdrop{background: rgba(0,0,0,.55)}
 
+    /* Lightbox full-screen image viewer */
+    #lightboxDialog{
+      background: rgba(0,0,0,0.95);
+      border: none;
+      border-radius: 0;
+      width: 100vw;
+      height: 100vh;
+      max-width: 100vw;
+      max-height: 100vh;
+      padding: 0;
+      margin: 0;
+    }
+    #lightboxDialog::backdrop{background: rgba(0,0,0,0.9)}
+    
+    .lightbox-content{
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    #lightboxImg{
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+      touch-action: pinch-zoom; /* Enable native pinch-to-zoom */
+    }
+    
+    .lightbox-close{
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 10;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      transition: background 0.2s;
+    }
+    .lightbox-close:hover{
+      background: rgba(0,0,0,0.8);
+    }
+    .lightbox-close:active{
+      background: rgba(0,0,0,0.9);
+    }
+
     .modal-header{
       display:flex;
       justify-content: space-between;
@@ -843,6 +902,13 @@
     </form>
   </dialog>
 
+  <dialog id="lightboxDialog">
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="lightboxClose" aria-label="Close">✕</button>
+      <img id="lightboxImg" src="" alt="" />
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
@@ -969,7 +1035,10 @@
         notesCount: $('#notesCount'),
         saveEditBtn: $('#saveEditBtn'),
         compareDialog: $('#compareDialog'),
-        compareGrid: $('#compareGrid')
+        compareGrid: $('#compareGrid'),
+        lightboxDialog: $('#lightboxDialog'),
+        lightboxImg: $('#lightboxImg'),
+        lightboxClose: $('#lightboxClose')
       };
 
       function uid(){
@@ -1639,6 +1708,11 @@
           img.src = it.dataUrl;
           img.alt = it.label ? it.label : (it.fileName || 'Mood board image');
           img.loading = 'lazy';
+          img.style.cursor = 'pointer';
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openLightbox(it.dataUrl, img.alt);
+          });
 
           const meta = document.createElement('div');
           meta.className = 'meta';
@@ -1932,6 +2006,19 @@
         els.compareDialog.showModal();
       }
 
+      function openLightbox(dataUrl, alt = ''){
+        if (!els.lightboxDialog || !els.lightboxImg) return;
+        els.lightboxImg.src = dataUrl;
+        els.lightboxImg.alt = alt;
+        els.lightboxDialog.showModal();
+      }
+
+      function closeLightbox(){
+        if (!els.lightboxDialog) return;
+        els.lightboxDialog.close();
+        els.lightboxImg.src = ''; // Clear to free memory
+      }
+
       function escapeHtml(str){
         return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       }
@@ -2114,6 +2201,24 @@
           els.userDialog.close();
         }
       });
+
+      // Lightbox close button
+      if (els.lightboxClose){
+        els.lightboxClose.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeLightbox();
+        });
+      }
+
+      // Close lightbox when clicking backdrop (outside image)
+      if (els.lightboxDialog){
+        els.lightboxDialog.addEventListener('click', (e) => {
+          // Only close if clicking the dialog itself, not the content
+          if (e.target === els.lightboxDialog){
+            closeLightbox();
+          }
+        });
+      }
 
       // Edit dialog interactions
       els.editNotes.addEventListener('input', updateNotesCount);
