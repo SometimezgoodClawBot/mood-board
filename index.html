@@ -243,6 +243,12 @@
       border-color: color-mix(in oklab, var(--danger) 35%, var(--border));
       background: color-mix(in oklab, var(--danger) 8%, var(--panel));
     }
+    #syncPill[data-sync="error"]{
+      color: color-mix(in oklab, var(--danger) 85%, var(--text));
+      border-color: color-mix(in oklab, var(--danger) 50%, var(--border));
+      background: color-mix(in oklab, var(--danger) 12%, var(--panel));
+      font-weight: 600;
+    }
 
     .board-header{
       display:flex;
@@ -962,17 +968,18 @@
 
       function clamp(n, min, max){return Math.max(min, Math.min(max, n));}
 
-      function toast(msg){
+      function toast(msg, durationMs = 2400){
         els.toast.textContent = msg;
         els.toast.classList.add('show');
         window.clearTimeout(toast._t);
-        toast._t = window.setTimeout(() => els.toast.classList.remove('show'), 2400);
+        toast._t = window.setTimeout(() => els.toast.classList.remove('show'), durationMs);
       }
 
       function setSyncStatus(mode, detail){
-        // mode: 'saving' | 'synced' | 'offline'
-        const m = (mode === 'saving' || mode === 'synced') ? mode : 'offline';
-        const text = detail ? `Sync: ${detail}` : (m === 'synced' ? 'Sync: synced' : (m === 'saving' ? 'Sync: saving…' : 'Sync: offline'));
+        // mode: 'saving' | 'synced' | 'offline' | 'error'
+        const validModes = ['saving', 'synced', 'offline', 'error'];
+        const m = validModes.includes(mode) ? mode : 'offline';
+        const text = detail ? `Sync: ${detail}` : (m === 'synced' ? 'Sync: synced' : (m === 'saving' ? 'Sync: saving…' : (m === 'error' ? 'Sync: error' : 'Sync: offline')));
         if (els.syncPill){
           els.syncPill.dataset.sync = m;
           els.syncPill.textContent = text;
@@ -1062,14 +1069,17 @@
 
       async function saveToCloud(){
         if (!navigator.onLine){
+          console.log('[saveToCloud] Skipping: offline');
           setSyncStatus('offline', 'offline');
           return;
         }
         if (!db || !boardRef){
+          console.log('[saveToCloud] Skipping: Firebase not initialized');
           setSyncStatus('offline', 'offline');
           return;
         }
         if (!dirty) {
+          console.log('[saveToCloud] Skipping: no changes (dirty=false)');
           setSyncStatus('synced', 'synced');
           return;
         }
@@ -1081,12 +1091,33 @@
             clientUpdatedAt: state.updatedAt,
             cloudUpdatedAt: serverTimestamp()
           };
+          
+          // Check payload size (Firestore limit: 1MB)
+          const payloadStr = JSON.stringify(payload);
+          const payloadBytes = new Blob([payloadStr]).size;
+          const payloadKB = Math.round(payloadBytes / 1024);
+          console.log(`[saveToCloud] Attempting write: ${state.items.length} items, ${payloadKB} KB`);
+          
+          if (payloadBytes > 950000) { // 950KB safety margin
+            console.error(`[saveToCloud] Payload too large: ${payloadKB} KB (limit: ~950 KB)`);
+            setSyncStatus('offline', 'error');
+            toast(`⚠️ Cloud sync failed: Too much image data (${payloadKB} KB). Reduce image quality or count.`, 8000);
+            return;
+          }
+          
           await setDoc(boardRef, payload, { merge: false });
           dirty = false;
+          console.log(`[saveToCloud] ✓ Write successful`);
           setSyncStatus('synced', 'synced');
         }catch(err){
-          console.warn('Firestore save failed; staying local:', err);
-          setSyncStatus('offline', 'offline');
+          console.error('[saveToCloud] Write failed:', err.code, err.message, err);
+          setSyncStatus('offline', 'error');
+          
+          if (err.code === 'resource-exhausted' || err.message?.includes('too large')) {
+            toast(`⚠️ Cloud sync failed: Document too large. Try reducing image sizes.`, 8000);
+          } else {
+            toast(`⚠️ Cloud sync failed: ${err.message || err.code}`, 6000);
+          }
         }
       }
 
