@@ -852,6 +852,25 @@
     (async function(){
       'use strict';
 
+      // PIN code protection
+      const PIN_KEY = 'moodBoard.pinAuthorized';
+      const CORRECT_PIN = '1981';
+      
+      // Check if already authorized in this session
+      try{
+        const authorized = sessionStorage.getItem(PIN_KEY);
+        if (authorized !== 'true'){
+          const enteredPin = prompt('Enter PIN to access:');
+          if (enteredPin !== CORRECT_PIN){
+            document.body.innerHTML = '<div style="display:grid;place-items:center;height:100vh;font-family:system-ui;color:#ef4444">Access denied.</div>';
+            return;
+          }
+          sessionStorage.setItem(PIN_KEY, 'true');
+        }
+      }catch{
+        // If sessionStorage fails, just allow access (better than blocking)
+      }
+
       const ROOMS = ["Kitchen","Living Room","Bedroom","Bathroom","Exterior","Other"];
       const STORAGE_KEY = 'moodBoard.v1';
       const THEME_KEY = 'moodBoard.theme';
@@ -1173,12 +1192,20 @@
       function setCurrentUser(name, {persist=true, quiet=false} = {}){
         const n = (name === 'Ronnie' || name === 'Nicola') ? name : '';
         currentUser = n;
+        console.log(`[setCurrentUser] Setting user to: "${n}", persist=${persist}`);
         if (els.userBtnLabel) els.userBtnLabel.textContent = `User: ${n || '—'}`;
         if (persist){
           try{
-            if (n) localStorage.setItem(CURRENT_USER_KEY, n);
-            else localStorage.removeItem(CURRENT_USER_KEY);
-          }catch{}
+            if (n) {
+              localStorage.setItem(CURRENT_USER_KEY, n);
+              console.log(`[setCurrentUser] Saved to localStorage: ${n}`);
+            } else {
+              localStorage.removeItem(CURRENT_USER_KEY);
+              console.log(`[setCurrentUser] Removed from localStorage`);
+            }
+          }catch(err){
+            console.error('[setCurrentUser] localStorage write failed:', err);
+          }
         }
         // Save to board state as last editor (syncs to Firestore with board)
         state.lastEditedBy = n || undefined;
@@ -1188,10 +1215,21 @@
       }
 
       function ensureUserSelected(){
-        try{ currentUser = localStorage.getItem(CURRENT_USER_KEY) || ''; }catch{ currentUser = ''; }
-        if (currentUser !== 'Ronnie' && currentUser !== 'Nicola') currentUser = '';
+        try{ 
+          currentUser = localStorage.getItem(CURRENT_USER_KEY) || ''; 
+          console.log(`[ensureUserSelected] Loaded from localStorage: "${currentUser}"`);
+        }catch{ 
+          currentUser = ''; 
+          console.log(`[ensureUserSelected] localStorage read failed, defaulting to empty`);
+        }
+        if (currentUser !== 'Ronnie' && currentUser !== 'Nicola') {
+          console.log(`[ensureUserSelected] Invalid user "${currentUser}", clearing`);
+          currentUser = '';
+        }
         if (els.userBtnLabel) els.userBtnLabel.textContent = `User: ${currentUser || '—'}`;
+        console.log(`[ensureUserSelected] Final user: "${currentUser}"`);
         if (!currentUser && els.userDialog){
+          console.log(`[ensureUserSelected] No user set, showing modal`);
           els.userDialog.showModal();
         }
       }
@@ -1767,10 +1805,10 @@
           return;
         }
 
+        // If no user selected, prompt but allow upload as fallback
         if (currentUser !== 'Ronnie' && currentUser !== 'Nicola'){
           if (els.userDialog) els.userDialog.showModal();
-          toast('Choose a user to tag uploads.');
-          return;
+          console.log('[handleFiles] No user selected, allowing upload as Unknown');
         }
 
         const room = ROOMS.includes(els.defaultRoom.value) ? els.defaultRoom.value : 'Other';
