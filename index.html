@@ -914,6 +914,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
     import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
 
     (async function(){
       'use strict';
@@ -961,6 +962,8 @@
       let db = null;
       /** @type {ReturnType<typeof doc> | null} */
       let boardRef = null;
+      /** @type {import('firebase/storage').FirebaseStorage | null} */
+      let storage = null;
 
       let dirty = false;
       let applyingRemote = false;
@@ -1235,6 +1238,41 @@
           setSyncStatus('offline', 'offline');
           return false;
         }
+
+      async function migrateImagesToStorage(){
+        // Migrate existing base64 images to Firebase Storage
+        if (!storage) return;
+        
+        let migrated = 0;
+        const toMigrate = state.items.filter(it => it.dataUrl && !it.imageUrl);
+        
+        if (toMigrate.length === 0){
+          console.log('[Migration] No images need migration');
+          return;
+        }
+        
+        console.log(`[Migration] Migrating ${toMigrate.length} images to Storage...`);
+        toast(`Migrating ${toMigrate.length} images to cloud storage...`);
+        
+        for (const it of toMigrate){
+          try{
+            const result = await uploadImageToStorage(it.dataUrl, it.fileName || 'image.jpg');
+            it.imageUrl = result.downloadUrl;
+            it.storagePath = result.storagePath;
+            delete it.dataUrl; // Remove base64 data
+            migrated++;
+          }catch(err){
+            console.warn(`[Migration] Failed to migrate image ${it.id}:`, err);
+          }
+        }
+        
+        if (migrated > 0){
+          console.log(`[Migration] Successfully migrated ${migrated} images`);
+          saveState(); // Save locally
+          scheduleCloudSave(0); // Sync to Firestore immediately
+          toast(`✅ Migrated ${migrated} images to cloud storage`);
+        }
+      }
       }
 
       function setTheme(theme){
@@ -1444,6 +1482,47 @@
           r.onload = () => resolve(String(r.result));
           r.readAsDataURL(file);
         });
+      }
+
+      function dataUrlToBlob(dataUrl){
+        // Convert data URL to Blob for Firebase Storage upload
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while(n--){
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], {type: mime});
+      }
+
+      async function uploadImageToStorage(dataUrl, fileName){
+        // Upload image to Firebase Storage, return download URL
+        if (!storage){
+          throw new Error('Firebase Storage not initialized');
+        }
+        
+        const blob = dataUrlToBlob(dataUrl);
+        const ext = fileName.split('.').pop() || 'jpg';
+        const storagePath = `images/${uid()}.${ext}`;
+        const imgRef = storageRef(storage, storagePath);
+        
+        await uploadBytes(imgRef, blob);
+        const downloadUrl = await getDownloadURL(imgRef);
+        
+        return { downloadUrl, storagePath };
+      }
+
+      async function deleteImageFromStorage(storagePath){
+        // Delete image from Firebase Storage
+        if (!storage || !storagePath) return;
+        try{
+          const imgRef = storageRef(storage, storagePath);
+          await deleteObject(imgRef);
+        }catch(err){
+          console.warn('Failed to delete from storage:', storagePath, err);
+        }
       }
 
       async function downscaleDataUrl(dataUrl, maxDim=1800, quality=0.88){
@@ -1705,13 +1784,13 @@
           });
 
           const img = document.createElement('img');
-          img.src = it.dataUrl;
+          img.src = it.imageUrl || it.dataUrl; // Support both new and old format
           img.alt = it.label ? it.label : (it.fileName || 'Mood board image');
           img.loading = 'lazy';
           img.style.cursor = 'pointer';
           img.addEventListener('click', (e) => {
             e.stopPropagation();
-            openLightbox(it.dataUrl, img.alt);
+            openLightbox(it.imageUrl || it.dataUrl, img.alt);
           });
 
           const meta = document.createElement('div');
@@ -1782,9 +1861,10 @@
           delBtn.type = 'button';
           delBtn.style.borderColor = 'color-mix(in oklab, var(--danger) 30%, var(--border))';
           delBtn.innerHTML = '<span aria-hidden="true">🗑</span><span>Delete</span>';
-          delBtn.addEventListener('click', () => {
+          delBtn.addEventListener('click', async () => {
             const ok = confirm('Delete this image from the board?');
             if (!ok) return;
+            if (it.storagePath){ await deleteImageFromStorage(it.storagePath); }
             state.items = state.items.filter(x => x.id !== it.id);
             selectedIds.delete(it.id);
             saveState();
@@ -1843,7 +1923,7 @@
         const it = state.items.find(x => x.id === id);
         if (!it) return;
         editingId = id;
-        els.editPreview.src = it.dataUrl;
+        els.editPreview.src = it.imageUrl || it.dataUrl;
         els.editPreview.alt = it.label || it.fileName || 'Image preview';
         els.editRoom.value = it.room || 'Other';
         if (els.editUploader) els.editUploader.value = (it.uploadedBy === 'Ronnie' || it.uploadedBy === 'Nicola') ? it.uploadedBy : '';
@@ -1900,6 +1980,22 @@
           try{
             const dataUrl = await readFileAsDataURL(f);
             const scaled = await downscaleDataUrl(dataUrl, 1800, 0.88);
+            
+            // Upload to Firebase Storage if available
+            let imageUrl = scaled;
+            let storagePath = null;
+            
+            if (storage){
+              try{
+                const result = await uploadImageToStorage(scaled, f.name);
+                imageUrl = result.downloadUrl;
+                storagePath = result.storagePath;
+              }catch(err){
+                console.warn('Storage upload failed, falling back to data URL:', err);
+                // Fall back to data URL if storage fails
+              }
+            }
+            
             const item = {
               id: uid(),
               room,
@@ -1912,7 +2008,8 @@
               createdAt: Date.now(),
               updatedAt: Date.now(),
               order: nextOrder(),
-              dataUrl: scaled
+              imageUrl: imageUrl, // Storage URL or data URL fallback
+              storagePath: storagePath // Path in Firebase Storage (for deletion)
             };
             state.items.push(item);
             saveState();
@@ -1950,8 +2047,8 @@
         const cleaned = [];
         for (const it of parsed.items){
           if (!it || typeof it !== 'object') continue;
-          if (typeof it.dataUrl !== 'string' || !it.dataUrl.startsWith('data:image/')) continue;
-          const room = ROOMS.includes(it.room) ? it.room : 'Other';
+          const imgUrl = it.imageUrl || it.dataUrl;
+          if (typeof imgUrl !== 'string' || imgUrl.length === 0) continue;
           const up = (it.uploadedBy === 'Ronnie' || it.uploadedBy === 'Nicola') ? it.uploadedBy : undefined;
           cleaned.push({
             id: typeof it.id === 'string' ? it.id : uid(),
@@ -1964,8 +2061,8 @@
             uploadedBy: up,
             createdAt: Number.isFinite(it.createdAt) ? it.createdAt : Date.now(),
             updatedAt: Date.now(),
-            order: Number.isFinite(it.order) ? it.order : undefined,
-            dataUrl: it.dataUrl
+            imageUrl: imgUrl,
+            storagePath: it.storagePath || null
           });
         }
 
@@ -1994,7 +2091,7 @@
           const box = document.createElement('div');
           box.className = 'compare-item';
           const img = document.createElement('img');
-          img.src = it.dataUrl;
+          img.src = it.imageUrl || it.dataUrl;
           img.alt = it.label || it.fileName || 'Comparison image';
           const cap = document.createElement('div');
           cap.className = 'cap';
@@ -2271,11 +2368,12 @@
       updateStats();
       render();
 
-      // Init Firestore (best-effort)
+      // Init Firestore + Storage (best-effort)
       try{
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         boardRef = doc(db, BOARD_COLLECTION, BOARD_ID);
+        storage = getStorage(app);
       }catch(err){
         console.warn('Firebase init failed; staying local:', err);
         setSyncStatus('offline', 'offline');
@@ -2290,6 +2388,11 @@
         }else{
           // No cloud doc yet (or unreadable) — push our local board up.
           scheduleCloudSave(600);
+        }
+        
+        // Migrate existing base64 images to Storage
+        if (storage){
+          await migrateImagesToStorage();
         }
       }
 
